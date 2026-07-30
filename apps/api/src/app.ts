@@ -6,6 +6,7 @@ import { requestIdMiddleware } from "./middleware/request-id";
 import { applySecurityMiddleware } from "./middleware/security";
 import { healthRouter } from "./modules/health/routes";
 import { authRouter } from "./modules/auth/routes";
+import { paymentRouter } from "./modules/payments/routes";
 import { requireActiveAccount, requireAuth, requirePurchaseOnboarding } from "./middleware/auth";
 
 export function createApp() {
@@ -15,9 +16,11 @@ export function createApp() {
   app.use(pinoHttp({ logger, genReqId: (req) => req.requestId }));
   applySecurityMiddleware(app);
   app.use(express.json({ limit: "256kb" }));
+  app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 
   app.use("/api", healthRouter);
   app.use("/api/auth", authRouter);
+  app.use("/api/payments", paymentRouter);
   app.post("/api/orders", requireAuth, requireActiveAccount, requirePurchaseOnboarding);
 
   app.use(notFoundHandler);
