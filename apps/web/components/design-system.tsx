@@ -223,7 +223,7 @@ export function Breadcrumbs({ items }: { items: Array<{ label: string; href?: st
   );
 }
 
-export function SearchInput({ placeholder = "Search", compact = false, disabled = false }: { placeholder?: string; compact?: boolean; disabled?: boolean }) {
+export function SearchInput({ placeholder = "Search", compact = false, disabled = false, value, onChange, onKeyDown }: { placeholder?: string; compact?: boolean; disabled?: boolean; value?: string; onChange?: React.ChangeEventHandler<HTMLInputElement>; onKeyDown?: React.KeyboardEventHandler<HTMLInputElement> }) {
   return (
     <label className="relative block min-w-0">
       <span className="sr-only">{placeholder}</span>
@@ -236,6 +236,9 @@ export function SearchInput({ placeholder = "Search", compact = false, disabled 
         disabled={disabled}
         placeholder={placeholder}
         type="search"
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
       />
     </label>
   );
@@ -536,15 +539,14 @@ export function MobileDataCard({ title, rows, status }: { title: string; rows: A
   );
 }
 
-export function Pagination({ page = 1, totalPages = 10, disabled = false }: { page?: number; totalPages?: number; disabled?: boolean }) {
+export function Pagination({ page = 1, totalPages = 10, disabled = false, onFirst, onPrev, onNext }: { page?: number; totalPages?: number; disabled?: boolean; onFirst?: () => void; onPrev?: () => void; onNext?: () => void }) {
   return (
     <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Pagination">
       <p className="text-sm text-slate-600">Page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span></p>
       <div className="flex gap-1">
-        <Button size="icon" variant="secondary" aria-label="First page" disabled={disabled}><ChevronsLeft className="h-4 w-4" aria-hidden /></Button>
-        <Button size="icon" variant="secondary" aria-label="Previous page" disabled={disabled}><ChevronLeft className="h-4 w-4" aria-hidden /></Button>
-        <Button size="icon" variant="secondary" aria-label="Next page" disabled={disabled}><ChevronRight className="h-4 w-4" aria-hidden /></Button>
-        <Button size="icon" variant="secondary" aria-label="Last page" disabled={disabled}><ChevronsRight className="h-4 w-4" aria-hidden /></Button>
+        <Button size="icon" variant="secondary" aria-label="First page" disabled={disabled || !onFirst} onClick={onFirst}><ChevronsLeft className="h-4 w-4" aria-hidden /></Button>
+        <Button size="icon" variant="secondary" aria-label="Previous page" disabled={disabled || !onPrev} onClick={onPrev}><ChevronLeft className="h-4 w-4" aria-hidden /></Button>
+        <Button size="icon" variant="secondary" aria-label="Next page" disabled={disabled || !onNext} onClick={onNext}><ChevronRight className="h-4 w-4" aria-hidden /></Button>
       </div>
     </nav>
   );
