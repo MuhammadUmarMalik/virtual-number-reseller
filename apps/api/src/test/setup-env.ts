@@ -1,0 +1,13 @@
+process.env.NODE_ENV = "test";
+process.env.APP_URL = "http://localhost:3000";
+process.env.API_URL = "http://localhost:4000";
+process.env.CORS_ORIGINS = "http://localhost:3000";
+process.env.DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/number_reseller?schema=public";
+process.env.REDIS_URL = "redis://localhost:6379";
+process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+process.env.ENCRYPTION_KEY = "test-encryption-key-with-32-chars";
+process.env.JAZZCASH_CALLBACK_URL = "http://localhost:4000/api/payments/jazzcash/callback";
+process.env.EASYPAISA_CALLBACK_URL = "http://localhost:4000/api/payments/easypaisa/callback";
+process.env.VENDOR_BASE_URL = "https://vendor.example.com";
+process.env.ALLOWED_VENDOR_HOSTNAMES = "vendor.example.com,localhost";

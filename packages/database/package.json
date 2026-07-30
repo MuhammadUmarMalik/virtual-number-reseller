@@ -1,0 +1,35 @@
+{
+  "name": "@number-reseller/database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "prisma generate && tsc -p tsconfig.json && tsc -p prisma/tsconfig.json",
+    "lint": "eslint .",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "seed": "tsx prisma/seed.ts",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p prisma/tsconfig.json"
+  },
+  "dependencies": {
+    "@prisma/client": "6.2.1",
+    "argon2": "0.41.1"
+  },
+  "devDependencies": {
+    "prisma": "6.2.1",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

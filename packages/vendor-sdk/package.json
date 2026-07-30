@@ -1,0 +1,22 @@
+{
+  "name": "@number-reseller/vendor-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@number-reseller/types": "workspace:*",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3",
+    "vitest": "2.1.8"
+  }
+}

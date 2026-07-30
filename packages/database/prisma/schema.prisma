@@ -1,0 +1,685 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  SUPPORT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum VerificationTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+}
+
+enum KycStatus {
+  NOT_STARTED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum KycDocumentType {
+  CNIC
+  PASSPORT
+  BUSINESS
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum WalletTransactionType {
+  TOP_UP
+  PURCHASE
+  REFUND
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+  REVERSAL
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum PaymentProvider {
+  JAZZCASH
+  EASYPAISA
+  MOCK
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REVERSED
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  DEGRADED
+}
+
+enum CatalogStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum VendorProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  INACTIVE
+}
+
+enum PricingMode {
+  FIXED_PRICE
+  FIXED_MARGIN
+  PERCENTAGE_MARGIN
+  HYBRID
+}
+
+enum QuoteStatus {
+  ACTIVE
+  CONSUMED
+  EXPIRED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  PARTIAL
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum ActivationStatus {
+  RESERVED
+  WAITING_FOR_OTP
+  OTP_RECEIVED
+  COMPLETED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+  FAILED
+}
+
+enum RefundStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum AbuseRuleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AbuseRuleAction {
+  BLOCK
+  REQUIRE_REVIEW
+  LIMIT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_USER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model User {
+  id                     String              @id @default(uuid()) @db.Uuid
+  name                   String
+  email                  String              @unique
+  phone                  String?             @unique
+  passwordHash           String
+  role                   UserRole            @default(USER)
+  status                 UserStatus          @default(ACTIVE)
+  emailVerifiedAt        DateTime?           @db.Timestamptz(3)
+  phoneVerifiedAt        DateTime?           @db.Timestamptz(3)
+  initialTopupDone       Boolean             @default(false)
+  kycStatus              KycStatus           @default(NOT_STARTED)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime            @updatedAt @db.Timestamptz(3)
+  wallet                 Wallet?
+  refreshTokens          RefreshToken[]
+  verificationTokens     VerificationToken[]
+  payments               Payment[]
+  priceQuotes            PriceQuote[]
+  orders                 Order[]
+  activations            Activation[]
+  refunds                Refund[]
+  kycSubmissions         KycSubmission[]     @relation("KycOwner")
+  reviewedKycSubmissions KycSubmission[]     @relation("KycReviewer")
+  auditLogs              AuditLog[]          @relation("AuditActor")
+  idempotencyRecords     IdempotencyRecord[]
+  createdAbuseRules      AbuseRule[]         @relation("AbuseRuleCreator")
+  createdBlocks          BlockedService[]    @relation("BlockedServiceCreator")
+  supportTickets         SupportTicket[]     @relation("TicketOwner")
+  assignedSupportTickets SupportTicket[]     @relation("TicketAssignee")
+  updatedSystemSettings  SystemSetting[]     @relation("SystemSettingUpdater")
+
+  @@index([role, status])
+  @@index([kycStatus])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  familyId    String    @db.Uuid
+  hashedToken String    @unique
+  expiresAt   DateTime  @db.Timestamptz(3)
+  revokedAt   DateTime? @db.Timestamptz(3)
+  replacedByTokenId String? @db.Uuid
+  ipAddress   String?
+  userAgent   String?
+  lastUsedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model VerificationToken {
+  id          String                @id @default(uuid()) @db.Uuid
+  userId      String                @db.Uuid
+  type        VerificationTokenType
+  hashedToken String                @unique
+  target      String
+  expiresAt   DateTime              @db.Timestamptz(3)
+  consumedAt  DateTime?             @db.Timestamptz(3)
+  createdAt   DateTime              @default(now()) @db.Timestamptz(3)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, expiresAt])
+  @@index([expiresAt])
+}
+
+model Wallet {
+  id           String              @id @default(uuid()) @db.Uuid
+  userId       String              @unique @db.Uuid
+  balance      Decimal             @default(0) @db.Decimal(18, 2)
+  currency     String              @default("PKR") @db.VarChar(3)
+  version      Int                 @default(0)
+  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime            @updatedAt @db.Timestamptz(3)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id                    String                @id @default(uuid()) @db.Uuid
+  walletId              String                @db.Uuid
+  paymentId             String?               @db.Uuid
+  type                  WalletTransactionType
+  amount                Decimal               @db.Decimal(18, 2)
+  direction             LedgerDirection
+  balanceBefore         Decimal               @db.Decimal(18, 2)
+  balanceAfter          Decimal               @db.Decimal(18, 2)
+  status                TransactionStatus
+  referenceType         String                @db.VarChar(50)
+  referenceId           String
+  idempotencyKey        String                @unique
+  description           String?
+  metadata              Json?
+  originalTransactionId String?               @db.Uuid
+  createdAt             DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime              @default(now()) @db.Timestamptz(3)
+  wallet                Wallet                @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  payment               Payment?              @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  originalTransaction   WalletTransaction?    @relation("LedgerReversal", fields: [originalTransactionId], references: [id], onDelete: Restrict)
+  reversalTransactions  WalletTransaction[]   @relation("LedgerReversal")
+  refund                Refund?
+
+  @@index([walletId, createdAt])
+  @@index([referenceType, referenceId])
+  @@index([paymentId])
+  @@index([originalTransactionId])
+}
+
+model Payment {
+  id                    String              @id @default(uuid()) @db.Uuid
+  userId                String              @db.Uuid
+  provider              PaymentProvider
+  amount                Decimal             @db.Decimal(18, 2)
+  currency              String              @default("PKR") @db.VarChar(3)
+  merchantReference     String              @unique
+  providerTransactionId String?             @unique
+  idempotencyKey        String              @unique
+  status                PaymentStatus       @default(CREATED)
+  callbackVerified      Boolean             @default(false)
+  paidAt                DateTime?           @db.Timestamptz(3)
+  createdAt             DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime            @updatedAt @db.Timestamptz(3)
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  callbacks             PaymentCallback[]
+  walletTransactions    WalletTransaction[]
+
+  @@index([userId, createdAt])
+  @@index([provider, status, createdAt])
+}
+
+model PaymentCallback {
+  id                String    @id @default(uuid()) @db.Uuid
+  paymentId         String    @db.Uuid
+  callbackReference String
+  payloadHash       String
+  signatureVerified Boolean   @default(false)
+  redactedPayload   Json
+  receivedAt        DateTime  @default(now()) @db.Timestamptz(3)
+  processedAt       DateTime? @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+  payment           Payment   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, callbackReference])
+  @@unique([paymentId, payloadHash])
+  @@index([paymentId, receivedAt])
+}
+
+model Country {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  isoCode   String           @unique @db.VarChar(2)
+  dialCode  String
+  status    CatalogStatus    @default(ACTIVE)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime?        @db.Timestamptz(3)
+  products  VendorProduct[]
+  quotes    PriceQuote[]
+  orders    Order[]
+  blocks    BlockedService[]
+
+  @@index([status, deletedAt])
+}
+
+model Service {
+  id        String           @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String           @unique
+  logoUrl   String?
+  status    CatalogStatus    @default(ACTIVE)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime?        @db.Timestamptz(3)
+  products  VendorProduct[]
+  quotes    PriceQuote[]
+  orders    Order[]
+  blocks    BlockedService[]
+
+  @@index([status, deletedAt])
+}
+
+model Vendor {
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String
+  code            String          @unique
+  baseUrl         String
+  apiKeyEncrypted String
+  status          VendorStatus    @default(ACTIVE)
+  priority        Int             @default(100)
+  healthScore     Decimal?        @db.Decimal(5, 2)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime?       @db.Timestamptz(3)
+  products        VendorProduct[]
+  activations     Activation[]
+
+  @@index([status, priority, deletedAt])
+}
+
+model VendorProduct {
+  id                String              @id @default(uuid()) @db.Uuid
+  vendorId          String              @db.Uuid
+  countryId         String              @db.Uuid
+  serviceId         String              @db.Uuid
+  vendorProductCode String
+  vendorCost        Decimal             @db.Decimal(18, 2)
+  availableQuantity Int?
+  status            VendorProductStatus @default(ACTIVE)
+  lastSyncedAt      DateTime?           @db.Timestamptz(3)
+  metadata          Json?
+  createdAt         DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
+  deletedAt         DateTime?           @db.Timestamptz(3)
+  vendor            Vendor              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  country           Country             @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  service           Service             @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  pricingRules      PricingRule[]
+  quotes            PriceQuote[]
+  orders            Order[]
+  activations       Activation[]
+
+  @@unique([vendorId, countryId, serviceId, vendorProductCode])
+  @@index([serviceId, countryId, status, deletedAt])
+  @@index([vendorId, status])
+}
+
+model PricingRule {
+  id                     String        @id @default(uuid()) @db.Uuid
+  vendorProductId        String        @db.Uuid
+  pricingMode            PricingMode
+  fixedPrice             Decimal?      @db.Decimal(18, 2)
+  fixedMargin            Decimal?      @db.Decimal(18, 2)
+  percentageMargin       Decimal?      @db.Decimal(8, 4)
+  minimumProfit          Decimal?      @db.Decimal(18, 2)
+  bulkMinQuantity        Int?
+  bulkDiscountPercentage Decimal?      @db.Decimal(8, 4)
+  active                 Boolean       @default(true)
+  startsAt               DateTime?     @db.Timestamptz(3)
+  endsAt                 DateTime?     @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @db.Timestamptz(3)
+  deletedAt              DateTime?     @db.Timestamptz(3)
+  vendorProduct          VendorProduct @relation(fields: [vendorProductId], references: [id], onDelete: Restrict)
+  quotes                 PriceQuote[]
+
+  @@index([vendorProductId, active, startsAt, endsAt])
+}
+
+model PriceQuote {
+  id                       String        @id @default(uuid()) @db.Uuid
+  userId                   String        @db.Uuid
+  countryId                String        @db.Uuid
+  serviceId                String        @db.Uuid
+  vendorProductId          String        @db.Uuid
+  pricingRuleId            String?       @db.Uuid
+  quantity                 Int
+  unitVendorCostSnapshot   Decimal       @db.Decimal(18, 2)
+  unitSellingPriceSnapshot Decimal       @db.Decimal(18, 2)
+  subtotal                 Decimal       @db.Decimal(18, 2)
+  discount                 Decimal       @default(0) @db.Decimal(18, 2)
+  total                    Decimal       @db.Decimal(18, 2)
+  currency                 String        @default("PKR") @db.VarChar(3)
+  pricingSnapshot          Json
+  status                   QuoteStatus   @default(ACTIVE)
+  expiresAt                DateTime      @db.Timestamptz(3)
+  createdAt                DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime      @updatedAt @db.Timestamptz(3)
+  user                     User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  country                  Country       @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  service                  Service       @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  vendorProduct            VendorProduct @relation(fields: [vendorProductId], references: [id], onDelete: Restrict)
+  pricingRule              PricingRule?  @relation(fields: [pricingRuleId], references: [id], onDelete: Restrict)
+  order                    Order?
+
+  @@index([userId, status, expiresAt])
+  @@index([serviceId, countryId, status])
+  @@index([vendorProductId, createdAt])
+}
+
+model Order {
+  id                       String         @id @default(uuid()) @db.Uuid
+  userId                   String         @db.Uuid
+  quoteId                  String?        @unique @db.Uuid
+  countryId                String         @db.Uuid
+  serviceId                String         @db.Uuid
+  vendorProductId          String?        @db.Uuid
+  orderNumber              String         @unique
+  status                   OrderStatus    @default(PENDING)
+  requestedQuantity        Int
+  successfulQuantity       Int            @default(0)
+  failedQuantity           Int            @default(0)
+  serviceNameSnapshot      String
+  countryNameSnapshot      String
+  unitVendorCostSnapshot   Decimal        @db.Decimal(18, 2)
+  unitSellingPriceSnapshot Decimal        @db.Decimal(18, 2)
+  pricingSnapshot          Json
+  subtotal                 Decimal        @default(0) @db.Decimal(18, 2)
+  discount                 Decimal        @default(0) @db.Decimal(18, 2)
+  total                    Decimal        @default(0) @db.Decimal(18, 2)
+  currency                 String         @default("PKR") @db.VarChar(3)
+  idempotencyKey           String         @unique
+  createdAt                DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime       @updatedAt @db.Timestamptz(3)
+  user                     User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  quote                    PriceQuote?    @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  country                  Country        @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  service                  Service        @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  vendorProduct            VendorProduct? @relation(fields: [vendorProductId], references: [id], onDelete: Restrict)
+  activations              Activation[]
+  refunds                  Refund[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+model Activation {
+  id                   String           @id @default(uuid()) @db.Uuid
+  orderId              String           @db.Uuid
+  userId               String           @db.Uuid
+  vendorId             String           @db.Uuid
+  vendorProductId      String           @db.Uuid
+  lineNumber           Int
+  phoneNumber          String?
+  serviceNameSnapshot  String
+  countryNameSnapshot  String
+  vendorCostSnapshot   Decimal          @db.Decimal(18, 2)
+  sellingPriceSnapshot Decimal          @db.Decimal(18, 2)
+  vendorActivationId   String?
+  otpEndpointEncrypted String?
+  status               ActivationStatus @default(RESERVED)
+  otpEncrypted         String?
+  otpReceivedAt        DateTime?        @db.Timestamptz(3)
+  expiresAt            DateTime?        @db.Timestamptz(3)
+  completedAt          DateTime?        @db.Timestamptz(3)
+  failureReason        String?
+  createdAt            DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime         @updatedAt @db.Timestamptz(3)
+  order                Order            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vendor               Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  vendorProduct        VendorProduct    @relation(fields: [vendorProductId], references: [id], onDelete: Restrict)
+  refund               Refund?
+
+  @@unique([orderId, lineNumber])
+  @@unique([vendorId, vendorActivationId])
+  @@index([userId, status])
+  @@index([orderId])
+  @@index([expiresAt, status])
+  @@index([vendorProductId, status])
+}
+
+model Refund {
+  id                  String             @id @default(uuid()) @db.Uuid
+  userId              String             @db.Uuid
+  orderId             String?            @db.Uuid
+  activationId        String?            @unique @db.Uuid
+  walletTransactionId String?            @unique @db.Uuid
+  amount              Decimal            @db.Decimal(18, 2)
+  currency            String             @default("PKR") @db.VarChar(3)
+  reason              String
+  status              RefundStatus       @default(PENDING)
+  idempotencyKey      String             @unique
+  createdAt           DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(3)
+  processedAt         DateTime?          @db.Timestamptz(3)
+  user                User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order               Order?             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  activation          Activation?        @relation(fields: [activationId], references: [id], onDelete: Restrict)
+  walletTransaction   WalletTransaction? @relation(fields: [walletTransactionId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([orderId])
+}
+
+model KycSubmission {
+  id                         String          @id @default(uuid()) @db.Uuid
+  userId                     String          @db.Uuid
+  type                       KycDocumentType
+  status                     KycStatus       @default(PENDING)
+  documentReferenceEncrypted String
+  reviewedBy                 String?         @db.Uuid
+  reviewedAt                 DateTime?       @db.Timestamptz(3)
+  rejectionReason            String?
+  createdAt                  DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime        @updatedAt @db.Timestamptz(3)
+  user                       User            @relation("KycOwner", fields: [userId], references: [id], onDelete: Restrict)
+  reviewer                   User?           @relation("KycReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([reviewedBy, status])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String
+  entityType  String
+  entityId    String
+  requestId   String
+  ipAddress   String?
+  userAgent   String?
+  beforeData  Json?
+  afterData   Json?
+  metadata    Json?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @db.Timestamptz(3)
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+  @@index([requestId])
+  @@index([createdAt])
+}
+
+model IdempotencyRecord {
+  id            String            @id @default(uuid()) @db.Uuid
+  userId        String?           @db.Uuid
+  key           String
+  operationType String
+  requestHash   String
+  status        IdempotencyStatus @default(IN_PROGRESS)
+  responseCode  Int?
+  responseBody  Json?
+  lockedAt      DateTime          @default(now()) @db.Timestamptz(3)
+  expiresAt     DateTime          @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+  user          User?             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([operationType, key])
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+  @@index([expiresAt])
+}
+
+model AbuseRule {
+  id            String          @id @default(uuid()) @db.Uuid
+  code          String          @unique
+  name          String
+  description   String?
+  status        AbuseRuleStatus @default(ACTIVE)
+  action        AbuseRuleAction
+  conditions    Json
+  limitValue    Int?
+  windowSeconds Int?
+  createdById   String?         @db.Uuid
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
+  deletedAt     DateTime?       @db.Timestamptz(3)
+  createdBy     User?           @relation("AbuseRuleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status, deletedAt])
+}
+
+model BlockedService {
+  id          String    @id @default(uuid()) @db.Uuid
+  serviceId   String    @db.Uuid
+  countryId   String?   @db.Uuid
+  reason      String
+  active      Boolean   @default(true)
+  startsAt    DateTime? @db.Timestamptz(3)
+  endsAt      DateTime? @db.Timestamptz(3)
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+  service     Service   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  country     Country?  @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  createdBy   User?     @relation("BlockedServiceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([serviceId, countryId, active, deletedAt])
+  @@index([startsAt, endsAt])
+}
+
+model SupportTicket {
+  id           String                @id @default(uuid()) @db.Uuid
+  userId       String                @db.Uuid
+  assignedToId String?               @db.Uuid
+  ticketNumber String                @unique
+  subject      String
+  description  String
+  status       SupportTicketStatus   @default(OPEN)
+  priority     SupportTicketPriority @default(NORMAL)
+  resolvedAt   DateTime?             @db.Timestamptz(3)
+  closedAt     DateTime?             @db.Timestamptz(3)
+  createdAt    DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime              @updatedAt @db.Timestamptz(3)
+  user         User                  @relation("TicketOwner", fields: [userId], references: [id], onDelete: Restrict)
+  assignedTo   User?                 @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([assignedToId, status])
+  @@index([status, priority, createdAt])
+}
+
+model SystemSetting {
+  id          String    @id @default(uuid()) @db.Uuid
+  key         String    @unique
+  category    String
+  value       Json
+  description String?
+  isSecret    Boolean   @default(false)
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+  updatedBy   User?     @relation("SystemSettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([category, deletedAt])
+}

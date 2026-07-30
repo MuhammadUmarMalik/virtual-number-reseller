@@ -1,0 +1,39 @@
+{
+  "name": "@number-reseller/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test --pass-with-no-tests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "3.10.0",
+    "@number-reseller/types": "workspace:*",
+    "@number-reseller/ui": "workspace:*",
+    "@number-reseller/validation": "workspace:*",
+    "@tanstack/react-query": "5.64.1",
+    "lucide-react": "0.468.0",
+    "next": "15.1.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-hook-form": "7.54.2",
+    "zod": "3.24.1",
+    "zustand": "5.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.7",
+    "@types/react-dom": "19.0.3",
+    "@playwright/test": "1.49.1",
+    "autoprefixer": "10.4.20",
+    "eslint-config-next": "15.1.4",
+    "postcss": "8.5.1",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.7.3",
+    "vitest": "2.1.8"
+  }
+}
