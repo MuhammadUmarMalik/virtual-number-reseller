@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+model User {
+  id             String     @id @default(cuid())
+  fullName       String     @map("full_name")
+  email          String     @unique
+  whatsappNumber String     @map("whatsapp_number") @unique
+  passwordHash   String     @map("password_hash")
+  role           Role       @default(USER)
+  status         UserStatus @default(ACTIVE)
+  avatarUrl      String?    @map("avatar_url")
+  emailVerified  Boolean    @default(false) @map("email_verified")
+  lastLoginAt    DateTime?  @map("last_login_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  sessions Session[]
+  wallet   Wallet?
+
+  @@index([status])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  refreshToken String   @map("refresh_token")
+  userAgent    String?  @map("user_agent")
+  ipAddress    String?  @map("ip_address")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  balance   Decimal  @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
