@@ -1,0 +1,174 @@
+"use client";
+
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ErrorState } from "@/components/shared/error-state";
+import { LoadingState } from "@/components/shared/loading-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { WalletAdjustModal } from "@/components/admin/wallet-adjust-modal";
+import { ApiError } from "@/lib/api-client";
+import {
+  getAdminUser,
+  updateUserRole,
+  updateUserStatus,
+} from "@/services/admin.service";
+import type { UserRole, UserStatus } from "@/types/auth.types";
+
+export default function AdminUserDetailPage() {
+  const { userId } = useParams<{ userId: string }>();
+  const [adjustingWallet, setAdjustingWallet] = useState(false);
+
+  const query = useQuery({
+    queryKey: ["admin", "users", userId],
+    queryFn: () => getAdminUser(userId),
+    enabled: Boolean(userId),
+  });
+
+  const handleStatus = async (status: UserStatus) => {
+    try {
+      await updateUserStatus(userId, status);
+      toast.success("User status updated");
+      void query.refetch();
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Unable to update status"
+      );
+    }
+  };
+
+  const handleRole = async (role: UserRole) => {
+    try {
+      await updateUserRole(userId, role);
+      toast.success("User role updated");
+      void query.refetch();
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? error.message : "Unable to update role"
+      );
+    }
+  };
+
+  if (query.isLoading) {
+    return <LoadingState label="Loading user..." />;
+  }
+
+  if (query.isError || !query.data) {
+    return <ErrorState message="Unable to load this user." />;
+  }
+
+  const user = query.data;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={user.fullName}
+        description={user.email}
+        actions={
+          <Button
+            type="button"
+            onClick={() => setAdjustingWallet(true)}
+          >
+            Adjust Wallet
+          </Button>
+        }
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+            Account Details
+          </h2>
+          <dl className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-slate-500">WhatsApp</dt>
+              <dd className="font-medium text-slate-900">{user.whatsappNumber}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Role</dt>
+              <dd className="font-medium text-slate-900">{user.role}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Status</dt>
+              <dd>
+                <StatusBadge status={user.status} />
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Joined</dt>
+              <dd className="font-medium text-slate-900">
+                {new Date(user.createdAt).toLocaleDateString("en-PK")}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Last Login</dt>
+              <dd className="font-medium text-slate-900">
+                {user.lastLoginAt
+                  ? new Date(user.lastLoginAt).toLocaleString("en-PK")
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+        </Card>
+
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+            Actions
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {user.status === "ACTIVE" ? (
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => void handleStatus("SUSPENDED")}
+              >
+                Suspend User
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleStatus("ACTIVE")}
+              >
+                Activate User
+              </Button>
+            )}
+            {user.role === "ADMIN" ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleRole("USER")}
+              >
+                Remove Admin
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleRole("ADMIN")}
+              >
+                Make Admin
+              </Button>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {adjustingWallet && (
+        <WalletAdjustModal
+          userId={user.id}
+          onClose={() => setAdjustingWallet(false)}
+          onSuccess={() => {
+            setAdjustingWallet(false);
+            toast.success("Wallet updated");
+          }}
+        />
+      )}
+    </div>
+  );
+}
