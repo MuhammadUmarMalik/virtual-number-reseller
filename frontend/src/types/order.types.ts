@@ -1,4 +1,5 @@
 import type { AuthUser } from "@/types/auth.types";
+import type { PurchasedNumber } from "@/types/number.types";
 
 export type ProductStatus = "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 
@@ -69,6 +70,7 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   items?: OrderItem[];
+  numbers?: PurchasedNumber[];
   user?: AuthUser;
 }
 

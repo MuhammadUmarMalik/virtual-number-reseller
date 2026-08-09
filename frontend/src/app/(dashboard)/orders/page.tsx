@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { Package } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
@@ -22,7 +23,7 @@ export default function OrdersPage() {
   });
 
   if (query.isLoading) {
-    return <LoadingState label="Loading orders..." />;
+    return <LoadingState label="Loading orders..." variant="table" rows={5} />;
   }
 
   if (query.isError || !query.data) {
@@ -40,16 +41,17 @@ export default function OrdersPage() {
 
       {data.items.length === 0 ? (
         <EmptyState
+          icon={<Package className="h-6 w-6" />}
           title="No orders yet"
           description="Buy a number from the dashboard to get started."
         />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="hidden overflow-hidden rounded-xl border border-border bg-card sm:block">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-3">Order</th>
                     <th className="px-4 py-3">Items</th>
                     <th className="px-4 py-3">Total</th>
@@ -61,27 +63,27 @@ export default function OrdersPage() {
                   {data.items.map((order) => (
                     <tr
                       key={order.id}
-                      className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
+                      className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40"
                     >
                       <td className="px-4 py-3">
                         <Link
                           href={`/orders/${order.id}`}
-                          className="font-medium text-indigo-600 hover:text-indigo-500"
+                          className="font-medium text-primary hover:text-primary/80"
                         >
                           {order.orderCode}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {order.items?.reduce((sum, item) => sum + item.quantity, 0) ??
                           "—"}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         {formatCurrency(order.total)}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={order.status} />
                       </td>
-                      <td className="px-4 py-3 text-slate-500">
+                      <td className="px-4 py-3 text-muted-foreground">
                         {new Date(order.createdAt).toLocaleDateString("en-PK")}
                       </td>
                     </tr>
@@ -90,6 +92,38 @@ export default function OrdersPage() {
               </table>
             </div>
           </div>
+
+          <ul className="divide-y divide-border sm:hidden">
+            {data.items.map((order) => (
+              <li key={order.id} className="flex items-center justify-between gap-4 p-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="font-medium text-primary hover:text-primary/80"
+                    >
+                      {order.orderCode}
+                    </Link>
+                    <StatusBadge status={order.status} />
+                  </div>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {order.items?.reduce((sum, item) => sum + item.quantity, 0) ??
+                      "—"}{" "}
+                    items
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-foreground">
+                    {formatCurrency(order.total)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleDateString("en-PK")}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
           <Pagination
             page={page}
             totalPages={data.totalPages}

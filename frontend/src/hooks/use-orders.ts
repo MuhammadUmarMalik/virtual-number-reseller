@@ -34,6 +34,7 @@ export function useCreateOrder() {
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["numbers"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

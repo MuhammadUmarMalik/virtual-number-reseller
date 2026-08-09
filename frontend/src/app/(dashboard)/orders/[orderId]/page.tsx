@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { ArrowRight } from "lucide-react";
 
 import { RefundModal } from "@/components/orders/refund-modal";
 import { Button } from "@/components/ui/button";
@@ -52,11 +54,11 @@ export default function OrderDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Items</h2>
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Items</h2>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Qty</th>
                   <th className="px-4 py-3">Unit Price</th>
@@ -66,15 +68,15 @@ export default function OrderDetailPage() {
               </thead>
               <tbody>
                 {order.items?.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-3 font-medium text-slate-900">
+                  <tr key={item.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
+                    <td className="px-4 py-3 font-medium text-foreground">
                       {item.product?.name ?? item.productId}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{item.quantity}</td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td className="px-4 py-3 text-muted-foreground">{item.quantity}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
                       {formatCurrency(item.unitPrice)}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">
+                    <td className="px-4 py-3 font-semibold text-foreground">
                       {formatCurrency(item.totalPrice)}
                     </td>
                     <td className="px-4 py-3">
@@ -88,23 +90,23 @@ export default function OrderDetailPage() {
         </section>
 
         <section>
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Summary</h2>
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Summary</h2>
+          <div className="rounded-xl border border-border bg-card p-5">
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <dt className="text-slate-500">Subtotal</dt>
-                <dd className="font-medium text-slate-900">
+                <dt className="text-muted-foreground">Subtotal</dt>
+                <dd className="font-medium text-foreground">
                   {formatCurrency(order.subtotal)}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Total</dt>
-                <dd className="font-semibold text-slate-900">
+                <dt className="text-muted-foreground">Total</dt>
+                <dd className="font-semibold text-foreground">
                   {formatCurrency(order.total)}
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">Status</dt>
+                <dt className="text-muted-foreground">Status</dt>
                 <dd>
                   <StatusBadge status={order.status} />
                 </dd>
@@ -115,16 +117,43 @@ export default function OrderDetailPage() {
       </div>
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Numbers</h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          {!order.items?.some((item) => item.otpCount > 0) ? (
-            <p className="text-sm text-slate-500">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Numbers</h2>
+        <div className="rounded-xl border border-border bg-card p-5">
+          {!order.numbers || order.numbers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
               No numbers available for this order yet.
             </p>
           ) : (
-            <p className="text-sm text-slate-500">
-              View numbers and OTPs under Active Numbers.
-            </p>
+            <ul className="space-y-3">
+              {order.numbers.map((number) => (
+                <li
+                  key={number.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-semibold text-foreground">
+                      {number.phoneNumber}
+                    </span>
+                    <StatusBadge status={number.status} />
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>OTPs: {number.otpCount}</span>
+                    <span>
+                      Expires:{" "}
+                      {number.expiresAt
+                        ? new Date(number.expiresAt).toLocaleDateString("en-PK")
+                        : "—"}
+                    </span>
+                    <Link
+                      href="/active-numbers"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
+                    >
+                      View <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </section>
