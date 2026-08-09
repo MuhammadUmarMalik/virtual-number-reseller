@@ -45,15 +45,15 @@ export default function WalletPage() {
       />
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">
           Recent Transactions
         </h2>
         {transactionsQuery.isLoading ? (
-          <LoadingState label="Loading transactions..." />
+          <LoadingState label="Loading transactions..." variant="table" rows={5} />
         ) : transactionsQuery.isError ? (
           <ErrorState message="Unable to load transactions." />
         ) : (
-          <div className="rounded-xl border border-slate-200 bg-white">
+          <div className="rounded-xl border border-border bg-card">
             <TransactionTable transactions={transactionsQuery.data?.items ?? []} />
           </div>
         )}
