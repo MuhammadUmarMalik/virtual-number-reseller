@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Megaphone } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -51,6 +52,7 @@ export default function UpdatesPage() {
 
       {data.items.length === 0 ? (
         <EmptyState
+          icon={<Megaphone className="h-6 w-6" />}
           title="No updates yet"
           description="Check back later for announcements."
         />
@@ -65,7 +67,7 @@ export default function UpdatesPage() {
                       {TYPE_LABELS[announcement.type] ?? announcement.type}
                     </Badge>
                     {announcement.publishedAt && (
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-muted-foreground">
                         {new Date(announcement.publishedAt).toLocaleDateString(
                           "en-PK",
                           { dateStyle: "medium" }
@@ -73,12 +75,12 @@ export default function UpdatesPage() {
                       </span>
                     )}
                   </div>
-                  <h2 className="font-semibold text-slate-900">
+                  <h2 className="font-semibold text-foreground">
                     {announcement.title}
                   </h2>
                 </div>
               </div>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
                 {announcement.message}
               </p>
             </Card>

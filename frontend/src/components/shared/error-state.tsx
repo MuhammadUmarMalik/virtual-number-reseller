@@ -1,3 +1,7 @@
+import { RefreshCw } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+
 interface ErrorStateProps {
   message: string;
   onRetry?: () => void;
@@ -5,19 +9,23 @@ interface ErrorStateProps {
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 px-6 py-16 text-center">
-      <h3 className="text-base font-medium text-red-800">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 px-6 py-16 text-center dark:border-red-500/20 dark:bg-red-500/10">
+      <h3 className="text-base font-medium text-red-800 dark:text-red-300">
         Something went wrong
       </h3>
-      <p className="mt-1 max-w-md text-sm text-red-600">{message}</p>
+      <p className="mt-1 max-w-md text-sm text-red-700 dark:text-red-400">
+        {message}
+      </p>
       {onRetry && (
-        <button
+        <Button
           type="button"
+          variant="outline"
+          className="mt-4 border-red-300 bg-white text-red-700 hover:bg-red-100 dark:border-red-500/30 dark:bg-transparent dark:text-red-300 dark:hover:bg-red-500/10"
           onClick={onRetry}
-          className="mt-4 rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
         >
+          <RefreshCw className="h-4 w-4" />
           Try again
-        </button>
+        </Button>
       )}
     </div>
   );

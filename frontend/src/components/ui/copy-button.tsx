@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 
@@ -18,9 +19,11 @@ export function CopyButton({ value, label = "Copy", className }: CopyButtonProps
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
+      toast.success("Copied to clipboard");
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
+      toast.error("Unable to copy");
     }
   }, [value]);
 
@@ -30,7 +33,7 @@ export function CopyButton({ value, label = "Copy", className }: CopyButtonProps
       onClick={handleCopy}
       aria-label={copied ? "Copied" : `Copy ${value}`}
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         className
       )}
     >

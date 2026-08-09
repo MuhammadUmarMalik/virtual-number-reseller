@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { ApiError } from "@/lib/api-client";
 import { creditUserWallet, debitUserWallet } from "@/services/admin.service";
 
@@ -43,80 +45,62 @@ export function WalletAdjustModal({
     try {
       if (type === "credit") {
         await creditUserWallet(userId, numericAmount, reason.trim());
+        toast.success("Wallet credited");
       } else {
         await debitUserWallet(userId, numericAmount, reason.trim());
+        toast.success("Wallet debited");
       }
       onSuccess();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Unable to adjust wallet"
-      );
+      const message =
+        err instanceof ApiError ? err.message : "Unable to adjust wallet";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-slate-900/50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Adjust Wallet
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Modal title="Adjust Wallet" onClose={onClose}>
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant={type === "credit" ? "primary" : "outline"}
+          onClick={() => setType("credit")}
+        >
+          Credit
+        </Button>
+        <Button
+          type="button"
+          variant={type === "debit" ? "danger" : "outline"}
+          onClick={() => setType("debit")}
+        >
+          Debit
+        </Button>
+      </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={type === "credit" ? "primary" : "outline"}
-            onClick={() => setType("credit")}
+      <div className="space-y-4">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
           >
-            Credit
-          </Button>
-          <Button
-            type="button"
-            variant={type === "debit" ? "danger" : "outline"}
-            onClick={() => setType("debit")}
-          >
-            Debit
-          </Button>
-        </div>
-
-        <div className="space-y-4">
-          {error && (
-            <div
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              {error}
-            </div>
-          )}
-          <div className="space-y-1.5">
-            <Label htmlFor="amount">Amount (PKR)</Label>
-            <input
-              id="amount"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              disabled={isSubmitting}
-            />
+            {error}
           </div>
+        )}
+        <div className="space-y-1.5">
+          <Label htmlFor="amount">Amount (PKR)</Label>
+          <Input
+            id="amount"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            disabled={isSubmitting}
+          />
+        </div>
           <FormField
             label="Reason"
             type="text"
@@ -134,8 +118,7 @@ export function WalletAdjustModal({
           >
             {type === "credit" ? "Credit Wallet" : "Debit Wallet"}
           </Button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

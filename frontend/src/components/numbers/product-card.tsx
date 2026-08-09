@@ -1,8 +1,7 @@
-import { ShoppingCart } from "lucide-react";
+import { Package, ShoppingCart } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format-currency";
 import type { ProductSummary } from "@/types/content.types";
 
@@ -15,26 +14,29 @@ export function ProductCard({ product, onBuy }: ProductCardProps) {
   const outOfStock = product.availableStock <= 0;
 
   return (
-    <Card className="flex flex-col p-5">
+    <div className="flex flex-col rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm transition-shadow hover:shadow-md">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="font-semibold text-slate-900">{product.name}</h3>
+        <h3 className="font-semibold tracking-tight">{product.name}</h3>
         {outOfStock ? (
           <Badge variant="warning">Out of stock</Badge>
         ) : (
           <Badge variant="success">In stock</Badge>
         )}
       </div>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         {product.country} • {product.service} • {product.numberType}
       </p>
-      <div className="mt-4 flex items-center justify-between">
-        <p className="text-lg font-semibold text-slate-900">
+
+      <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
+        <p className="text-lg font-semibold tracking-tight">
           {formatCurrency(product.sellingPrice)}
         </p>
-        <p className="text-xs text-slate-400">
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <Package className="h-3.5 w-3.5" />
           {product.availableStock} available
-        </p>
+        </span>
       </div>
+
       <Button
         type="button"
         className="mt-4 w-full"
@@ -44,6 +46,6 @@ export function ProductCard({ product, onBuy }: ProductCardProps) {
         <ShoppingCart className="h-4 w-4" />
         Buy Number
       </Button>
-    </Card>
+    </div>
   );
 }

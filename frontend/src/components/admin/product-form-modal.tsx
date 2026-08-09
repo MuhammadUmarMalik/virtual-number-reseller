@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
+import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api-client";
 import {
   createProduct,
@@ -91,145 +93,126 @@ export function ProductFormModal({
     try {
       if (product) {
         await updateProduct(product.id, values);
+        toast.success("Product updated");
       } else {
         await createProduct(values);
+        toast.success("Product created");
       }
       onSuccess();
     } catch (error) {
-      setServerError(
-        error instanceof ApiError ? error.message : "Unable to save product"
-      );
+      const message =
+        error instanceof ApiError ? error.message : "Unable to save product";
+      setServerError(message);
+      toast.error(message);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-slate-900/50"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {product ? "Edit Product" : "Add Product"}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
+    <Modal
+      title={product ? "Edit Product" : "Add Product"}
+      onClose={onClose}
+      maxWidth="lg"
+    >
+      <form onSubmit={handleSubmit(submitForm)} className="space-y-4" noValidate>
+        {serverError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
           >
-            <X className="h-5 w-5" />
-          </button>
+            {serverError}
+          </div>
+        )}
+        <FormField
+          label="Name"
+          type="text"
+          error={errors.name?.message}
+          disabled={isSubmitting}
+          {...register("name")}
+        />
+        <FormField
+          label="Slug"
+          type="text"
+          error={errors.slug?.message}
+          disabled={isSubmitting}
+          {...register("slug")}
+        />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            label="Country"
+            type="text"
+            error={errors.country?.message}
+            disabled={isSubmitting}
+            {...register("country")}
+          />
+          <FormField
+            label="Country Code"
+            type="text"
+            error={errors.countryCode?.message}
+            disabled={isSubmitting}
+            {...register("countryCode")}
+          />
         </div>
-
-        <form onSubmit={handleSubmit(submitForm)} className="space-y-4" noValidate>
-          {serverError && (
-            <div
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              {serverError}
-            </div>
-          )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            label="Name"
+            label="Service"
             type="text"
-            error={errors.name?.message}
+            error={errors.service?.message}
             disabled={isSubmitting}
-            {...register("name")}
+            {...register("service")}
           />
           <FormField
-            label="Slug"
+            label="Number Type"
             type="text"
-            error={errors.slug?.message}
+            error={errors.numberType?.message}
             disabled={isSubmitting}
-            {...register("slug")}
+            {...register("numberType")}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              label="Country"
-              type="text"
-              error={errors.country?.message}
-              disabled={isSubmitting}
-              {...register("country")}
-            />
-            <FormField
-              label="Country Code"
-              type="text"
-              error={errors.countryCode?.message}
-              disabled={isSubmitting}
-              {...register("countryCode")}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              label="Service"
-              type="text"
-              error={errors.service?.message}
-              disabled={isSubmitting}
-              {...register("service")}
-            />
-            <FormField
-              label="Number Type"
-              type="text"
-              error={errors.numberType?.message}
-              disabled={isSubmitting}
-              {...register("numberType")}
-            />
-          </div>
+        </div>
+        <FormField
+          label="Description"
+          type="text"
+          error={errors.description?.message}
+          disabled={isSubmitting}
+          {...register("description")}
+        />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormField
-            label="Description"
-            type="text"
-            error={errors.description?.message}
+            label="Price (PKR)"
+            type="number"
+            inputMode="numeric"
+            error={errors.sellingPrice?.message}
             disabled={isSubmitting}
-            {...register("description")}
+            {...register("sellingPrice", { valueAsNumber: true })}
           />
-          <div className="grid grid-cols-3 gap-4">
-            <FormField
-              label="Price (PKR)"
-              type="number"
-              inputMode="numeric"
-              error={errors.sellingPrice?.message}
-              disabled={isSubmitting}
-              {...register("sellingPrice", { valueAsNumber: true })}
-            />
-            <FormField
-              label="Refund Window (hrs)"
-              type="number"
-              inputMode="numeric"
-              error={errors.refundWindowHours?.message}
-              disabled={isSubmitting}
-              {...register("refundWindowHours", { valueAsNumber: true })}
-            />
-            <FormField
-              label="Stock"
-              type="number"
-              inputMode="numeric"
-              error={errors.availableStock?.message}
-              disabled={isSubmitting}
-              {...register("availableStock", { valueAsNumber: true })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="status">Status</Label>
-            <select
-              id="status"
-              className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
-              disabled={isSubmitting}
-              {...register("status")}
-            >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="OUT_OF_STOCK">Out of Stock</option>
-            </select>
-          </div>
-          <Button type="submit" className="w-full" isLoading={isSubmitting}>
-            {product ? "Save Changes" : "Create Product"}
-          </Button>
-        </form>
-      </div>
-    </div>
+          <FormField
+            label="Refund Window (hrs)"
+            type="number"
+            inputMode="numeric"
+            error={errors.refundWindowHours?.message}
+            disabled={isSubmitting}
+            {...register("refundWindowHours", { valueAsNumber: true })}
+          />
+          <FormField
+            label="Stock"
+            type="number"
+            inputMode="numeric"
+            error={errors.availableStock?.message}
+            disabled={isSubmitting}
+            {...register("availableStock", { valueAsNumber: true })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="status">Status</Label>
+          <Select id="status" disabled={isSubmitting} {...register("status")}>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="OUT_OF_STOCK">Out of Stock</option>
+          </Select>
+        </div>
+        <Button type="submit" className="w-full" isLoading={isSubmitting}>
+          {product ? "Save Changes" : "Create Product"}
+        </Button>
+      </form>
+    </Modal>
   );
 }

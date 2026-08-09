@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Package } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -26,7 +27,7 @@ export default function AdminProductsPage() {
   });
 
   if (query.isLoading) {
-    return <LoadingState label="Loading products..." />;
+    return <LoadingState label="Loading products..." variant="table" rows={5} />;
   }
 
   if (query.isError || !query.data) {
@@ -48,60 +49,61 @@ export default function AdminProductsPage() {
       />
 
       {data.items.length === 0 ? (
-        <EmptyState title="No products yet" />
+        <EmptyState
+          title="No products yet"
+          icon={<Package className="h-6 w-6" />}
+        />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Country</th>
-                    <th className="px-4 py-3">Service</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Price</th>
-                    <th className="px-4 py-3">Stock</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Country</th>
+                  <th className="px-4 py-3">Service</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Stock</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((product) => (
+                  <tr
+                    key={product.id}
+                    className="border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {product.name}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{product.country}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{product.service}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{product.numberType}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground">
+                      {formatCurrency(product.sellingPrice)}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {product.availableStock}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={product.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingProduct(product)}
+                      >
+                        Edit
+                      </Button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((product) => (
-                    <tr
-                      key={product.id}
-                      className="border-b border-slate-100 last:border-0"
-                    >
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {product.name}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{product.country}</td>
-                      <td className="px-4 py-3 text-slate-600">{product.service}</td>
-                      <td className="px-4 py-3 text-slate-600">{product.numberType}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
-                        {formatCurrency(product.sellingPrice)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {product.availableStock}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={product.status} />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingProduct(product)}
-                        >
-                          Edit
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
           <Pagination
             page={page}

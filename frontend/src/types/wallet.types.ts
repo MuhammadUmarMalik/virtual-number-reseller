@@ -83,7 +83,7 @@ export interface TopupRequest {
 export interface CreateTopupPayload {
   paymentAccountId: string;
   amount: number;
-  senderAccount: string;
+  senderAccount?: string;
   transactionId?: string;
   screenshotUrl?: string;
   notes?: string;

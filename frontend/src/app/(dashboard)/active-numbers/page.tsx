@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Activity } from "lucide-react";
 
 import { CopyButton } from "@/components/ui/copy-button";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export default function ActiveNumbersPage() {
   };
 
   if (query.isLoading) {
-    return <LoadingState label="Loading numbers..." />;
+    return <LoadingState label="Loading numbers..." variant="grid" rows={6} />;
   }
 
   if (query.isError || !query.data) {
@@ -59,6 +60,7 @@ export default function ActiveNumbersPage() {
 
       {data.items.length === 0 ? (
         <EmptyState
+          icon={<Activity className="h-6 w-6" />}
           title="No active numbers"
           description="Buy a number from the dashboard to get started."
         />
@@ -68,19 +70,19 @@ export default function ActiveNumbersPage() {
             {data.items.map((number) => (
               <div
                 key={number.id}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-border bg-card p-5 shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-lg font-semibold text-slate-900">
+                  <span className="font-mono text-lg font-semibold text-foreground">
                     {number.phoneNumber}
                   </span>
                   <StatusBadge status={number.status} />
                 </div>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-muted-foreground">
                   {number.product?.service ?? "Unknown service"} •{" "}
                   {number.product?.country ?? "Unknown country"}
                 </p>
-                <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+                <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
                   <span>OTPs: {number.otpCount}</span>
                   <span>
                     Expires:{" "}

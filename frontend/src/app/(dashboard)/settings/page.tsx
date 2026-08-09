@@ -81,10 +81,10 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+      <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Profile</h2>
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Profile</h2>
         <form
           onSubmit={profileForm.handleSubmit(submitProfile)}
           className="space-y-4"
@@ -93,7 +93,7 @@ export default function SettingsPage() {
           {profileError && (
             <div
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
             >
               {profileError}
             </div>
@@ -129,7 +129,7 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">
           Change Password
         </h2>
         <form
@@ -140,7 +140,7 @@ export default function SettingsPage() {
           {passwordError && (
             <div
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
             >
               {passwordError}
             </div>

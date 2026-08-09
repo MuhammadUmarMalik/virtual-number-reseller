@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Megaphone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -64,21 +65,24 @@ export default function AdminAnnouncementsPage() {
       />
 
       {data.items.length === 0 ? (
-        <EmptyState title="No announcements yet" />
+        <EmptyState
+          title="No announcements yet"
+          icon={<Megaphone className="h-6 w-6" />}
+        />
       ) : (
         <div className="space-y-4">
           {data.items.map((announcement) => (
             <Card key={announcement.id}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="font-semibold text-slate-900">
+                  <h2 className="font-semibold text-foreground">
                     {announcement.title}
                   </h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {announcement.type} •{" "}
                     {announcement.isPublished ? "Published" : "Draft"}
                   </p>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-muted-foreground">
                     {announcement.message}
                   </p>
                 </div>

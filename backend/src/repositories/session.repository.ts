@@ -19,6 +19,10 @@ export const sessionRepository = {
     });
   },
 
+  findById(id: string) {
+    return prisma.session.findUnique({ where: { id } });
+  },
+
   findByRefreshToken(refreshTokenHash: string) {
     return prisma.session.findFirst({ where: { refreshToken: refreshTokenHash } });
   },
