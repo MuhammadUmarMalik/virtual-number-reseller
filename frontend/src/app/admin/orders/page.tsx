@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { BookOpen } from "lucide-react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
@@ -21,7 +22,7 @@ export default function AdminOrdersPage() {
   });
 
   if (query.isLoading) {
-    return <LoadingState label="Loading orders..." />;
+    return <LoadingState label="Loading orders..." variant="table" rows={5} />;
   }
 
   if (query.isError || !query.data) {
@@ -35,47 +36,45 @@ export default function AdminOrdersPage() {
       <PageHeader title="Orders" description="All user orders" />
 
       {data.items.length === 0 ? (
-        <EmptyState title="No orders yet" />
+        <EmptyState title="No orders yet" icon={<BookOpen className="h-6 w-6" />} />
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Order</th>
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Total</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Date</th>
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3">Order</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Total</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {order.orderCode}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {order.user?.fullName ?? order.userId}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-foreground">
+                      {formatCurrency(order.total)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={order.status} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {new Date(order.createdAt).toLocaleDateString("en-PK")}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="border-b border-slate-100 last:border-0"
-                    >
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {order.orderCode}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {order.user?.fullName ?? order.userId}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900">
-                        {formatCurrency(order.total)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={order.status} />
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">
-                        {new Date(order.createdAt).toLocaleDateString("en-PK")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
           <Pagination
             page={page}
