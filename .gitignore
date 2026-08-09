@@ -39,3 +39,6 @@ Thumbs.db
 
 #claude files 
 claude.md
+
+# Playwright CLI artifacts
+.playwright-cli/
