@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
@@ -33,14 +34,17 @@ export default function SignInPage() {
 
     try {
       await signIn(values);
+      toast.success("Signed in successfully");
     } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Unable to sign in. Please try again.";
       setError("root.server", {
         type: "server",
-        message:
-          error instanceof ApiError
-            ? error.message
-            : "Unable to sign in. Please try again.",
+        message,
       });
+      toast.error(message);
     }
   };
 
@@ -60,7 +64,7 @@ export default function SignInPage() {
         {errors.root?.server?.message && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
           >
             {errors.root.server.message}
           </div>
@@ -88,11 +92,11 @@ export default function SignInPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-600">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
         <Link
           href="/sign-up"
-          className="font-medium text-indigo-600 hover:text-indigo-500"
+          className="font-medium text-primary hover:text-primary/80"
         >
           Sign up
         </Link>
