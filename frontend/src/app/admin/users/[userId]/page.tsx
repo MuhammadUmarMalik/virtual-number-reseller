@@ -81,33 +81,33 @@ export default function AdminUserDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">
             Account Details
           </h2>
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-slate-500">WhatsApp</dt>
-              <dd className="font-medium text-slate-900">{user.whatsappNumber}</dd>
+              <dt className="text-muted-foreground">WhatsApp</dt>
+              <dd className="font-medium text-foreground">{user.whatsappNumber}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">Role</dt>
-              <dd className="font-medium text-slate-900">{user.role}</dd>
+              <dt className="text-muted-foreground">Role</dt>
+              <dd className="font-medium text-foreground">{user.role}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">Status</dt>
+              <dt className="text-muted-foreground">Status</dt>
               <dd>
                 <StatusBadge status={user.status} />
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">Joined</dt>
-              <dd className="font-medium text-slate-900">
+              <dt className="text-muted-foreground">Joined</dt>
+              <dd className="font-medium text-foreground">
                 {new Date(user.createdAt).toLocaleDateString("en-PK")}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-500">Last Login</dt>
-              <dd className="font-medium text-slate-900">
+              <dt className="text-muted-foreground">Last Login</dt>
+              <dd className="font-medium text-foreground">
                 {user.lastLoginAt
                   ? new Date(user.lastLoginAt).toLocaleString("en-PK")
                   : "—"}
@@ -117,7 +117,7 @@ export default function AdminUserDetailPage() {
         </Card>
 
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">
             Actions
           </h2>
           <div className="flex flex-wrap gap-2">
