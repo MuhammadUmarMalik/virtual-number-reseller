@@ -1,0 +1,34 @@
+- generic [active] [ref=f9e1]:
+  - generic [ref=f9e2]:
+    - complementary [ref=f9e4]:
+      - link "Number Reseller" [ref=f9e6] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f9e7]:
+        - link "Dashboard" [ref=f9e8] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Active Numbers" [ref=f9e14] [cursor=pointer]:
+          - /url: /active-numbers
+        - link "My Orders" [ref=f9e17] [cursor=pointer]:
+          - /url: /orders
+        - link "OTP History" [ref=f9e20] [cursor=pointer]:
+          - /url: /otp-history
+        - link "Wallet" [ref=f9e24] [cursor=pointer]:
+          - /url: /wallet
+        - link "Notifications" [ref=f9e28] [cursor=pointer]:
+          - /url: /notifications
+        - link "Updates" [ref=f9e33] [cursor=pointer]:
+          - /url: /updates
+        - link "Support" [ref=f9e36] [cursor=pointer]:
+          - /url: /support
+        - link "Settings" [ref=f9e44] [cursor=pointer]:
+          - /url: /settings
+    - generic [ref=f9e49]:
+      - banner [ref=f9e50]:
+        - generic [ref=f9e51]:
+          - generic [ref=f9e52]: —
+          - button "Notifications" [ref=f9e56]
+          - button "Toggle theme" [ref=f9e60]
+      - main [ref=f9e62]:
+        - status "Loading notifications..." [ref=f9e63]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f9e96] [cursor=pointer]

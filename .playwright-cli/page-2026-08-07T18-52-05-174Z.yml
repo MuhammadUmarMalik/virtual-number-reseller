@@ -1,0 +1,124 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - link:
+            - /url: /
+            - text: Number Reseller
+        - navigation:
+          - link:
+            - /url: /dashboard
+            - text: Dashboard
+          - link:
+            - /url: /active-numbers
+            - text: Active Numbers
+          - link:
+            - /url: /orders
+            - text: My Orders
+          - link:
+            - /url: /otp-history
+            - text: OTP History
+          - link:
+            - /url: /wallet
+            - text: Wallet
+          - link:
+            - /url: /notifications
+            - text: Notifications
+          - link:
+            - /url: /updates
+            - text: Updates
+          - link:
+            - /url: /support
+            - text: Support
+          - link:
+            - /url: /settings
+            - text: Settings
+        - generic:
+          - generic:
+            - generic:
+              - generic: SA
+              - generic:
+                - paragraph: System Admin
+                - paragraph: admin@numberreseller.com
+            - button
+    - generic:
+      - banner:
+        - generic:
+          - generic: Rs 0
+          - button [expanded]:
+            - generic: "3"
+          - button
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=1]: Notifications
+              - paragraph: Updates on your orders, OTPs, wallet, and refunds
+            - generic:
+              - button: Mark all read
+          - generic:
+            - list:
+              - listitem:
+                - generic:
+                  - generic:
+                    - generic: TOPUP
+                    - generic: New
+                    - generic: 07-Aug-2026, 11:51 pm
+                  - paragraph: Top-up approved
+                  - paragraph: Your top-up of Rs. 500 has been approved.
+                - button: Mark read
+              - listitem:
+                - generic:
+                  - generic:
+                    - generic: OTP
+                    - generic: New
+                    - generic: 07-Aug-2026, 11:51 pm
+                  - paragraph: New OTP received
+                  - paragraph: A new OTP was received for +923000000001.
+                - button: Mark read
+              - listitem:
+                - generic:
+                  - generic:
+                    - generic: ORDER
+                    - generic: New
+                    - generic: 07-Aug-2026, 11:51 pm
+                  - paragraph: Order placed
+                  - paragraph: Order NRA-1001 for Product A (x1) is confirmed.
+                - button: Mark read
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f9e96] [cursor=pointer]
+  - alert
+  - menu "Notifications (3 unread)" [active] [ref=f9e213]:
+    - generic [ref=f9e214]:
+      - paragraph [ref=f9e215]: Notifications
+      - button "Mark all read" [ref=f9e216]
+    - list [ref=f9e221]:
+      - listitem [ref=f9e222]:
+        - button "TOPUP Unread Top-up approved Your top-up of Rs. 500 has been approved. 07-Aug-2026, 11:51 pm" [ref=f9e223]:
+          - generic [ref=f9e224]:
+            - generic [ref=f9e225]:
+              - generic [ref=f9e226]: TOPUP
+              - generic "Unread" [ref=f9e227]
+            - paragraph [ref=f9e228]: Top-up approved
+            - paragraph [ref=f9e229]: Your top-up of Rs. 500 has been approved.
+            - paragraph [ref=f9e230]: 07-Aug-2026, 11:51 pm
+      - listitem [ref=f9e231]:
+        - button "OTP Unread New OTP received A new OTP was received for +923000000001. 07-Aug-2026, 11:51 pm" [ref=f9e232]:
+          - generic [ref=f9e233]:
+            - generic [ref=f9e234]:
+              - generic [ref=f9e235]: OTP
+              - generic "Unread" [ref=f9e236]
+            - paragraph [ref=f9e237]: New OTP received
+            - paragraph [ref=f9e238]: A new OTP was received for +923000000001.
+            - paragraph [ref=f9e239]: 07-Aug-2026, 11:51 pm
+      - listitem [ref=f9e240]:
+        - button "ORDER Unread Order placed Order NRA-1001 for Product A (x1) is confirmed. 07-Aug-2026, 11:51 pm" [ref=f9e241]:
+          - generic [ref=f9e242]:
+            - generic [ref=f9e243]:
+              - generic [ref=f9e244]: ORDER
+              - generic "Unread" [ref=f9e245]
+            - paragraph [ref=f9e246]: Order placed
+            - paragraph [ref=f9e247]: Order NRA-1001 for Product A (x1) is confirmed.
+            - paragraph [ref=f9e248]: 07-Aug-2026, 11:51 pm
+    - menuitem "View all notifications" [ref=f9e250] [cursor=pointer]

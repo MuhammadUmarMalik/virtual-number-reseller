@@ -1,0 +1,66 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e35]:
+    - complementary [ref=e37]:
+      - link "Admin Panel" [ref=e39] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e40]:
+        - link "Dashboard" [ref=e41] [cursor=pointer]:
+          - /url: /admin/dashboard
+        - link "Users" [ref=e48] [cursor=pointer]:
+          - /url: /admin/users
+        - link "Top-Ups" [ref=e54] [cursor=pointer]:
+          - /url: /admin/topups
+        - link "Products" [ref=e58] [cursor=pointer]:
+          - /url: /admin/products
+        - link "Orders" [ref=e63] [cursor=pointer]:
+          - /url: /admin/orders
+        - link "Refunds" [ref=e66] [cursor=pointer]:
+          - /url: /admin/refunds
+        - link "Announcements" [ref=e70] [cursor=pointer]:
+          - /url: /admin/announcements
+        - link "Settings" [ref=e74] [cursor=pointer]:
+          - /url: /admin/settings
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]: SA
+          - generic [ref=e82]:
+            - paragraph [ref=e83]: System Admin
+            - paragraph [ref=e84]: admin@numberreseller.com
+        - button "Sign out" [ref=e85]
+    - generic [ref=e89]:
+      - banner [ref=e90]:
+        - button "Switch to dark mode" [ref=e92]
+      - main [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e98]:
+            - heading "Admin Dashboard" [level=1] [ref=e99]
+            - paragraph [ref=e100]: Overview of your business
+          - generic [ref=e101]:
+            - generic [ref=e102]:
+              - paragraph [ref=e104]: Total Users
+              - paragraph [ref=e111]: "3"
+            - generic [ref=e112]:
+              - paragraph [ref=e114]: Total Orders
+              - paragraph [ref=e118]: "5"
+            - generic [ref=e119]:
+              - paragraph [ref=e121]: Pending Top-Ups
+              - paragraph [ref=e126]: "3"
+            - generic [ref=e127]:
+              - paragraph [ref=e129]: Pending Refunds
+              - paragraph [ref=e134]: "0"
+            - generic [ref=e135]:
+              - paragraph [ref=e137]: Total Deposits
+              - paragraph [ref=e141]: Rs 500
+            - generic [ref=e142]:
+              - paragraph [ref=e144]: Total Purchases
+              - paragraph [ref=e148]: Rs 295
+            - generic [ref=e149]:
+              - paragraph [ref=e151]: Available Stock
+              - paragraph [ref=e157]: "400"
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e158]:
+        - button "Close toast" [ref=e159] [cursor=pointer]
+        - generic [ref=e166]: Signed in successfully
+  - button "Open Next.js Dev Tools" [ref=e27] [cursor=pointer]
+  - alert [ref=e34]

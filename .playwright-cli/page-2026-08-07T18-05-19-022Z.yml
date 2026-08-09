@@ -1,0 +1,29 @@
+- generic [active] [ref=f17e1]:
+  - generic [ref=f17e2]:
+    - complementary [ref=f17e4]:
+      - link "Number Reseller" [ref=f17e6] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f17e7]:
+        - link "Dashboard" [ref=f17e8] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Active Numbers" [ref=f17e15] [cursor=pointer]:
+          - /url: /active-numbers
+        - link "My Orders" [ref=f17e18] [cursor=pointer]:
+          - /url: /orders
+        - link "OTP History" [ref=f17e21] [cursor=pointer]:
+          - /url: /otp-history
+        - link "Wallet" [ref=f17e25] [cursor=pointer]:
+          - /url: /wallet
+        - link "Updates" [ref=f17e29] [cursor=pointer]:
+          - /url: /updates
+        - link "Settings" [ref=f17e32] [cursor=pointer]:
+          - /url: /settings
+    - generic [ref=f17e37]:
+      - banner [ref=f17e38]:
+        - generic [ref=f17e39]:
+          - generic [ref=f17e40]: —
+          - button "Toggle theme" [ref=f17e44]
+      - main [ref=f17e46]:
+        - status "Loading dashboard..." [ref=f17e47]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f17e59] [cursor=pointer]

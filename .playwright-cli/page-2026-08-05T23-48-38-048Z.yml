@@ -1,0 +1,35 @@
+- generic [active] [ref=f19e1]:
+  - generic [ref=f19e2]:
+    - complementary [ref=f19e4]:
+      - link "Admin Panel" [ref=f19e6] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f19e7]:
+        - link "Dashboard" [ref=f19e8] [cursor=pointer]:
+          - /url: /admin/dashboard
+        - link "Users" [ref=f19e14] [cursor=pointer]:
+          - /url: /admin/users
+        - link "Top-Ups" [ref=f19e20] [cursor=pointer]:
+          - /url: /admin/topups
+        - link "Products" [ref=f19e24] [cursor=pointer]:
+          - /url: /admin/products
+        - link "Orders" [ref=f19e29] [cursor=pointer]:
+          - /url: /admin/orders
+        - link "Refunds" [ref=f19e32] [cursor=pointer]:
+          - /url: /admin/refunds
+        - link "Announcements" [ref=f19e36] [cursor=pointer]:
+          - /url: /admin/announcements
+        - link "Settings" [ref=f19e40] [cursor=pointer]:
+          - /url: /admin/settings
+      - generic [ref=f19e45]:
+        - generic [ref=f19e46]:
+          - paragraph [ref=f19e47]: System Admin
+          - paragraph [ref=f19e48]: admin@numberreseller.com
+        - button "Sign out" [ref=f19e49]
+    - generic [ref=f19e53]:
+      - banner [ref=f19e54]
+      - main [ref=f19e55]:
+        - status [ref=f19e56]:
+          - generic [ref=f19e58]: Loading products...
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f19e64] [cursor=pointer]
+  - alert [ref=f19e68]

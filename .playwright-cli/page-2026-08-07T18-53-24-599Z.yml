@@ -1,0 +1,67 @@
+- generic [active] [ref=f10e1]:
+  - generic [ref=f10e100]:
+    - complementary [ref=f10e102]:
+      - link "Number Reseller" [ref=f10e104] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f10e105]:
+        - link "Dashboard" [ref=f10e106] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Active Numbers" [ref=f10e112] [cursor=pointer]:
+          - /url: /active-numbers
+        - link "My Orders" [ref=f10e115] [cursor=pointer]:
+          - /url: /orders
+        - link "OTP History" [ref=f10e118] [cursor=pointer]:
+          - /url: /otp-history
+        - link "Wallet" [ref=f10e122] [cursor=pointer]:
+          - /url: /wallet
+        - link "Notifications" [ref=f10e126] [cursor=pointer]:
+          - /url: /notifications
+        - link "Updates" [ref=f10e131] [cursor=pointer]:
+          - /url: /updates
+        - link "Support" [ref=f10e134] [cursor=pointer]:
+          - /url: /support
+        - link "Settings" [ref=f10e142] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f10e147]:
+        - generic [ref=f10e148]:
+          - generic [ref=f10e149]: SA
+          - generic [ref=f10e150]:
+            - paragraph [ref=f10e151]: System Admin
+            - paragraph [ref=f10e152]: admin@numberreseller.com
+        - button "Sign out" [ref=f10e153]
+    - generic [ref=f10e157]:
+      - banner [ref=f10e158]:
+        - generic [ref=f10e159]:
+          - generic [ref=f10e160]: Rs 0
+          - button "Notifications" [ref=f10e213]
+          - button "Switch to dark mode" [ref=f10e169]
+      - main [ref=f10e172]:
+        - generic [ref=f10e173]:
+          - generic [ref=f10e175]:
+            - heading "Notifications" [level=1] [ref=f10e176]
+            - paragraph [ref=f10e177]: Updates on your orders, OTPs, wallet, and refunds
+          - list [ref=f10e184]:
+            - listitem [ref=f10e185]:
+              - generic [ref=f10e186]:
+                - generic [ref=f10e187]:
+                  - generic [ref=f10e188]: TOPUP
+                  - generic [ref=f10e190]: 07-Aug-2026, 11:51 pm
+                - paragraph [ref=f10e191]: Top-up approved
+                - paragraph [ref=f10e192]: Your top-up of Rs. 500 has been approved.
+            - listitem [ref=f10e194]:
+              - generic [ref=f10e195]:
+                - generic [ref=f10e196]:
+                  - generic [ref=f10e197]: OTP
+                  - generic [ref=f10e199]: 07-Aug-2026, 11:51 pm
+                - paragraph [ref=f10e200]: New OTP received
+                - paragraph [ref=f10e201]: A new OTP was received for +923000000001.
+            - listitem [ref=f10e203]:
+              - generic [ref=f10e204]:
+                - generic [ref=f10e205]:
+                  - generic [ref=f10e206]: ORDER
+                  - generic [ref=f10e208]: 07-Aug-2026, 11:51 pm
+                - paragraph [ref=f10e209]: Order placed
+                - paragraph [ref=f10e210]: Order NRA-1001 for Product A (x1) is confirmed.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f10e96] [cursor=pointer]
+  - alert [ref=f10e212]

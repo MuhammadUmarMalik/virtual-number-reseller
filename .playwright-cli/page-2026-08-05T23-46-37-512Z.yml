@@ -1,0 +1,26 @@
+- generic [active] [ref=f9e1]:
+  - main [ref=f9e255]:
+    - generic [ref=f9e256]:
+      - link "Number Reseller" [ref=f9e258] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f9e259]:
+        - generic [ref=f9e260]:
+          - heading "Sign in to your account" [level=1] [ref=f9e261]
+          - paragraph [ref=f9e262]: Enter your credentials to access your dashboard
+        - generic [ref=f9e263]:
+          - generic [ref=f9e264]:
+            - generic [ref=f9e265]: Email
+            - textbox "Email" [ref=f9e266]:
+              - /placeholder: you@example.com
+          - generic [ref=f9e267]:
+            - generic [ref=f9e268]: Password
+            - textbox "Password" [ref=f9e269]:
+              - /placeholder: Enter your password
+          - button "Sign In" [ref=f9e270]
+        - paragraph [ref=f9e271]:
+          - text: Don't have an account?
+          - link "Sign up" [ref=f9e272] [cursor=pointer]:
+            - /url: /sign-up
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f9e51] [cursor=pointer]
+  - alert [ref=f9e254]: Sign in to your account

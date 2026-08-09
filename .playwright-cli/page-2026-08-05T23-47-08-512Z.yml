@@ -1,0 +1,59 @@
+- generic [active] [ref=f10e1]:
+  - generic [ref=f10e30]:
+    - complementary [ref=f10e32]:
+      - link "Admin Panel" [ref=f10e34] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=f10e35]:
+        - link "Dashboard" [ref=f10e36] [cursor=pointer]:
+          - /url: /admin/dashboard
+        - link "Users" [ref=f10e42] [cursor=pointer]:
+          - /url: /admin/users
+        - link "Top-Ups" [ref=f10e48] [cursor=pointer]:
+          - /url: /admin/topups
+        - link "Products" [ref=f10e52] [cursor=pointer]:
+          - /url: /admin/products
+        - link "Orders" [ref=f10e57] [cursor=pointer]:
+          - /url: /admin/orders
+        - link "Refunds" [ref=f10e60] [cursor=pointer]:
+          - /url: /admin/refunds
+        - link "Announcements" [ref=f10e64] [cursor=pointer]:
+          - /url: /admin/announcements
+        - link "Settings" [ref=f10e68] [cursor=pointer]:
+          - /url: /admin/settings
+      - generic [ref=f10e73]:
+        - generic [ref=f10e74]:
+          - paragraph [ref=f10e75]: System Admin
+          - paragraph [ref=f10e76]: admin@numberreseller.com
+        - button "Sign out" [ref=f10e77]
+    - generic [ref=f10e81]:
+      - banner [ref=f10e82]
+      - main [ref=f10e83]:
+        - generic [ref=f10e84]:
+          - generic [ref=f10e86]:
+            - heading "Admin Dashboard" [level=1] [ref=f10e87]
+            - paragraph [ref=f10e88]: Overview of your business
+          - generic [ref=f10e89]:
+            - generic [ref=f10e90]:
+              - paragraph [ref=f10e92]: Total Users
+              - paragraph [ref=f10e99]: "3"
+            - generic [ref=f10e100]:
+              - paragraph [ref=f10e102]: Total Orders
+              - paragraph [ref=f10e106]: "3"
+            - generic [ref=f10e107]:
+              - paragraph [ref=f10e109]: Pending Top-Ups
+              - paragraph [ref=f10e114]: "0"
+            - generic [ref=f10e115]:
+              - paragraph [ref=f10e117]: Pending Refunds
+              - paragraph [ref=f10e122]: "0"
+            - generic [ref=f10e123]:
+              - paragraph [ref=f10e125]: Total Deposits
+              - paragraph [ref=f10e129]: Rs 250
+            - generic [ref=f10e130]:
+              - paragraph [ref=f10e132]: Total Purchases
+              - paragraph [ref=f10e136]: Rs 165
+            - generic [ref=f10e137]:
+              - paragraph [ref=f10e139]: Available Stock
+              - paragraph [ref=f10e145]: "403"
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f10e25] [cursor=pointer]
+  - alert [ref=f10e29]

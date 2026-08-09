@@ -1,0 +1,127 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e35]:
+    - complementary [ref=e37]:
+      - link "Number Reseller" [ref=e39] [cursor=pointer]:
+        - /url: /
+      - navigation [ref=e40]:
+        - link "Dashboard" [ref=e41] [cursor=pointer]:
+          - /url: /dashboard
+        - link "Active Numbers" [ref=e48] [cursor=pointer]:
+          - /url: /active-numbers
+        - link "My Orders" [ref=e51] [cursor=pointer]:
+          - /url: /orders
+        - link "OTP History" [ref=e54] [cursor=pointer]:
+          - /url: /otp-history
+        - link "Wallet" [ref=e58] [cursor=pointer]:
+          - /url: /wallet
+        - link "Updates" [ref=e62] [cursor=pointer]:
+          - /url: /updates
+        - link "Settings" [ref=e65] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e72]: DU
+          - generic [ref=e73]:
+            - paragraph [ref=e74]: Demo User
+            - paragraph [ref=e75]: demo@numberreseller.com
+        - button "Sign out" [ref=e76]
+    - generic [ref=e80]:
+      - banner [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: Rs 390
+          - button "Switch to dark mode" [ref=e87]
+      - main [ref=e90]:
+        - generic [ref=e91]:
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - generic [ref=e96]: Welcome back, Demo
+              - paragraph [ref=e102]: Wallet Balance
+              - paragraph [ref=e103]: Rs 445
+            - generic [ref=e104]:
+              - link "Active Numbers" [ref=e105] [cursor=pointer]:
+                - /url: /active-numbers
+              - link "Top Up" [ref=e106] [cursor=pointer]:
+                - /url: /wallet
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - paragraph [ref=e113]: Total Orders
+              - paragraph [ref=e117]: "2"
+            - generic [ref=e118]:
+              - paragraph [ref=e120]: Active Numbers
+              - paragraph [ref=e124]: "2"
+            - generic [ref=e125]:
+              - paragraph [ref=e127]: Total OTPs
+              - paragraph [ref=e132]: "1"
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - generic [ref=e135]:
+                - heading "Available Numbers" [level=2] [ref=e136]
+                - paragraph [ref=e137]: Pick a service and start receiving OTPs
+              - link "My numbers" [ref=e138] [cursor=pointer]:
+                - /url: /active-numbers
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e143]:
+                  - heading "FB USA SIM Numbers" [level=3] [ref=e144]
+                  - generic [ref=e145]: In stock
+                - paragraph [ref=e146]: United States • Facebook • SIM
+                - generic [ref=e147]:
+                  - paragraph [ref=e148]: Rs 55
+                  - generic [ref=e149]: 119 available
+                - button "Buy Number" [ref=e154]
+              - generic [ref=e159]:
+                - generic [ref=e160]:
+                  - heading "Telegram USA SIM Numbers" [level=3] [ref=e161]
+                  - generic [ref=e162]: In stock
+                - paragraph [ref=e163]: United States • Telegram • SIM
+                - generic [ref=e164]:
+                  - paragraph [ref=e165]: Rs 65
+                  - generic [ref=e166]: 85 available
+                - button "Buy Number" [ref=e171]
+              - generic [ref=e176]:
+                - generic [ref=e177]:
+                  - heading "WhatsApp USA Virtual Numbers" [level=3] [ref=e178]
+                  - generic [ref=e179]: In stock
+                - paragraph [ref=e180]: United States • WhatsApp • Virtual
+                - generic [ref=e181]:
+                  - paragraph [ref=e182]: Rs 50
+                  - generic [ref=e183]: 200 available
+                - button "Buy Number" [ref=e188]
+              - generic [ref=e193]:
+                - generic [ref=e194]:
+                  - heading "Google USA SIM Numbers" [level=3] [ref=e195]
+                  - generic [ref=e196]: Out of stock
+                - paragraph [ref=e197]: United States • Google • SIM
+                - generic [ref=e198]:
+                  - paragraph [ref=e199]: Rs 75
+                  - generic [ref=e200]: 0 available
+                - button "Buy Number" [disabled] [ref=e205]
+          - generic [ref=e210]:
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - heading "Recent Orders" [level=2] [ref=e213]
+                - paragraph [ref=e214]: Your latest purchases
+              - link "View all" [ref=e215] [cursor=pointer]:
+                - /url: /orders
+            - table [ref=e219]:
+              - rowgroup [ref=e220]:
+                - row [ref=e221]:
+                  - columnheader "Order" [ref=e222]
+                  - columnheader "Total" [ref=e223]
+                  - columnheader "Status" [ref=e224]
+              - rowgroup [ref=e225]:
+                - row [ref=e226]:
+                  - cell "ORD4EEVWJ16" [ref=e227]
+                  - cell "Rs 55" [ref=e228]
+                  - cell "Completed" [ref=e229]
+                - row [ref=e231]:
+                  - cell "ORD-DEMO0001" [ref=e232]
+                  - cell "Rs 55" [ref=e233]
+                  - cell "Completed" [ref=e234]
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e265]:
+        - button "Close toast" [ref=e266] [cursor=pointer]
+        - generic [ref=e273]: Order placed successfully
+  - button "Open Next.js Dev Tools" [ref=e27] [cursor=pointer]
+  - alert [ref=e34]
