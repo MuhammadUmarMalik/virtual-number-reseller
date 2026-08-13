@@ -6,7 +6,6 @@ export const productRoutes = Router();
 
 productRoutes.use(authenticate);
 
-productRoutes.get("/filters", productController.getDistinctValues);
 productRoutes.get("/", productController.list);
 productRoutes.get("/:productId", productController.getById);
 

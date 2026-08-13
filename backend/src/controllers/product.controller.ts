@@ -3,7 +3,6 @@ import { productService } from "../services/product.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { successResponse } from "../utils/api-response.js";
 import { parsePagination } from "../utils/pagination.js";
-import { productRepository } from "../repositories/product.repository.js";
 import { paramString, toSingle } from "../utils/query.js";
 
 export const productController = {
@@ -15,6 +14,14 @@ export const productController = {
   update: asyncHandler(async (req: Request, res: Response) => {
     const data = await productService.update(paramString(req.params.productId), req.body);
     res.json(successResponse("Product updated", data));
+  }),
+
+  updatePricing: asyncHandler(async (req: Request, res: Response) => {
+    const data = await productService.updatePricing(
+      paramString(req.params.productId),
+      req.body
+    );
+    res.json(successResponse("Pricing updated", data));
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {
@@ -36,22 +43,5 @@ export const productController = {
   getById: asyncHandler(async (req: Request, res: Response) => {
     const data = await productService.getById(paramString(req.params.productId));
     res.json(successResponse("Product retrieved", data));
-  }),
-
-  getDistinctValues: asyncHandler(async (_req: Request, res: Response) => {
-    const [countries, services, numberTypes] = await Promise.all([
-      productRepository.list({ page: 1, limit: 100 }).then((rows) =>
-        [...new Set(rows.map((row) => row.country))]
-      ),
-      productRepository.list({ page: 1, limit: 100 }).then((rows) =>
-        [...new Set(rows.map((row) => row.service))]
-      ),
-      productRepository.list({ page: 1, limit: 100 }).then((rows) =>
-        [...new Set(rows.map((row) => row.numberType))]
-      ),
-    ]);
-    res.json(
-      successResponse("Product filters retrieved", { countries, services, numberTypes })
-    );
   }),
 };

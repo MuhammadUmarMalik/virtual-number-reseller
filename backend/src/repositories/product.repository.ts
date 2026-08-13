@@ -35,6 +35,10 @@ export const productRepository = {
     return prisma.product.findUnique({ where: { slug } });
   },
 
+  findByName(name: string) {
+    return prisma.product.findUnique({ where: { name } });
+  },
+
   create(data: Prisma.ProductUncheckedCreateInput) {
     return prisma.product.create({ data });
   },
@@ -46,6 +50,30 @@ export const productRepository = {
   delete(id: string) {
     return prisma.product.delete({ where: { id } });
   },
+
+  findStockSyncable() {
+    return prisma.product.findMany({
+      where: { status: "ACTIVE" },
+      select: {
+        id: true,
+        countryCode: true,
+        vendorCountryId: true,
+        vendorProviderId: true,
+        needsSync: true,
+        vendorId: true,
+        vip: true,
+        vendor: true,
+        service: true,
+      },
+    });
+  },
+
+  updateStock(id: string, availableStock: number) {
+    return prisma.product.update({
+      where: { id },
+      data: { availableStock },
+    });
+  },
 };
 
 function buildWhere(params: ProductListParams): Prisma.ProductWhereInput {
@@ -53,8 +81,6 @@ function buildWhere(params: ProductListParams): Prisma.ProductWhereInput {
 
   if (params.status) {
     where.status = params.status as ProductStatus;
-  } else {
-    where.status = "ACTIVE";
   }
 
   if (params.country) where.country = params.country;
