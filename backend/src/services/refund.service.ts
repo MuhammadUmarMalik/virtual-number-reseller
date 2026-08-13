@@ -3,6 +3,7 @@ import { refundRepository } from "../repositories/refund.repository.js";
 import { orderRepository } from "../repositories/order.repository.js";
 import { createAuditLog, createNotification } from "./audit.service.js";
 import { creditWallet } from "./wallet-ops.js";
+import { resolveVendor } from "../integrations/vendor/vendor.factory.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import type { CreateRefundInput } from "../validators/refund.validator.js";
@@ -34,6 +35,13 @@ export const refundService = {
     }
     if (order.status !== "COMPLETED") {
       throw new AppError("Only completed orders can be refunded", 400);
+    }
+
+    const refundWindowHours =
+      order.items?.[0]?.product?.refundWindowHours ?? 3;
+    const refundDeadline = order.createdAt.getTime() + refundWindowHours * 60 * 60 * 1000;
+    if (Date.now() > refundDeadline) {
+      throw new AppError("The refund window for this order has expired", 400);
     }
 
     const existing = await refundRepository.findByOrderId(input.orderId, userId);
@@ -95,9 +103,14 @@ export const refundService = {
       throw new AppError("Only pending refunds can be approved", 400);
     }
 
+    let releasedNumbers: Array<{
+      vendorActivationId: string | null;
+      phoneNumber: string;
+    }> = [];
+
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.refundRequest.update({
-        where: { id: refundId },
+      const claimed = await tx.refundRequest.updateMany({
+        where: { id: refundId, status: "PENDING" },
         data: {
           status: "COMPLETED",
           reviewedBy: adminId,
@@ -105,6 +118,9 @@ export const refundService = {
           adminNotes: notes,
         },
       });
+      if (claimed.count === 0) {
+        throw new AppError("Refund request is no longer pending", 400);
+      }
 
       await creditWallet(tx, {
         userId: refund.userId,
@@ -119,6 +135,28 @@ export const refundService = {
       await tx.order.update({
         where: { id: refund.orderId },
         data: { status: "REFUNDED" },
+      });
+
+      const numbers = await tx.purchasedNumber.updateMany({
+        where: {
+          orderId: refund.orderId,
+          status: { in: ["ACTIVE", "WAITING", "RECEIVED"] },
+        },
+        data: { status: "REFUNDED" },
+      });
+      void numbers;
+
+      releasedNumbers = await tx.purchasedNumber.findMany({
+        where: {
+          orderId: refund.orderId,
+          status: "REFUNDED",
+          vendor: "SMSBOWER",
+          vendorActivationId: { not: null },
+        },
+        select: {
+          phoneNumber: true,
+          vendorActivationId: true,
+        },
       });
 
       await createNotification(tx, {
@@ -136,8 +174,25 @@ export const refundService = {
         newValue: { status: "COMPLETED", amount: toString(refund.amount) },
       });
 
-      return updated;
+      return tx.refundRequest.findUniqueOrThrow({ where: { id: refundId } });
     });
+
+    // Best-effort vendor release after the DB transaction commits.
+    const vendor = resolveVendor("SMSBOWER");
+    await Promise.allSettled(
+      releasedNumbers.map((number) => {
+        if (!number.vendorActivationId) return Promise.resolve();
+        return vendor
+          .cancelActivation({
+            vendorActivationId: number.vendorActivationId,
+            phoneNumber: number.phoneNumber,
+            cost: "0",
+            countryCode: "",
+            canGetAnotherSms: false,
+          })
+          .catch(() => undefined);
+      })
+    );
 
     return result;
   },
