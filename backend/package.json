@@ -15,7 +15,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:fix-country": "tsx prisma/fix-country-format.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

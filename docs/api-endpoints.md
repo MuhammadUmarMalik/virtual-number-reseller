@@ -135,18 +135,21 @@ Request:
 ```
 {
   "productId": "product_id",
-  "quantity": 1
+  "quantity": 1,
+  "idempotencyKey": "uuid"   // optional, UUID; re-sending the same key returns the original order
 }
 ```
 
 The backend must:
 
 1. Read the product price from the database.
-2. Check the wallet balance.
-3. Check stock.
-4. Deduct the amount.
+2. Check the wallet balance (pre-flight, before occupying a vendor number).
+3. Check stock (atomic `available_stock >= quantity` decrement inside the transaction).
+4. Deduct the amount (atomic conditional debit inside the transaction).
 5. Create the order.
-6. Assign or purchase the number.
+6. Assign or purchase the number (`expires_at = now + NUMBER_LIFETIME_MINUTES`).
+7. If `idempotencyKey` matches an existing order, return it instead of charging again.
+8. If the DB transaction fails after a vendor number was obtained, release the number back to the vendor.
 
 ### Get User Orders
 
@@ -369,6 +372,23 @@ PATCH /api/v1/notifications/:notificationId/read
 PATCH /api/v1/notifications/read-all
 ```
 
+### Realtime Events (SSE)
+
+```
+GET /api/v1/realtime/events?token=<access_token>
+```
+
+Server-Sent Events stream for live updates. EventSource cannot send headers, so the access token is passed as a query param (`token`). Named events are pushed as the connection stays open (heartbeat ping every 25s):
+
+* `notification` — a new notification was created.
+* `otp` — a new OTP message was received for a number.
+* `number` — a purchased number changed status (e.g. expired).
+* `order` — an order was created.
+* `topup` — a top-up request changed status.
+* `refund` — a refund request changed status.
+
+The frontend invalidates the matching React Query keys on receipt (`notifications`, `numbers`, `otp-history`, `orders`, `wallet`, `admin`, ...) so lists stay fresh without manual refresh.
+
 ---
 
 ## 11. User Settings
@@ -495,11 +515,14 @@ DELETE /api/v1/admin/payment-accounts/:accountId
 
 ```
 GET    /api/v1/admin/products
+GET    /api/v1/admin/products/vendor-stock?pid=&country=&vip=
 POST   /api/v1/admin/products
 GET    /api/v1/admin/products/:productId
 PATCH  /api/v1/admin/products/:productId
 DELETE /api/v1/admin/products/:productId
 ```
+
+`GET /api/v1/admin/products/vendor-stock` queries the vendor live (no throttle) and returns `{ pid, available }` — a single number when `country` is provided (e.g. `us`), or the full per-country stock map otherwise. Used by the admin product form's "Fetch Live" button to pull realtime stock while entering a product.
 
 ---
 
@@ -839,9 +862,13 @@ Keys are country codes, values are available quantity.
 ## Integration Notes
 
 * **`serial` consistency**: value used in `getMobile`/`getMobileCode` must be reused in `getMsg` and `passMobile` for the same number, or requests fail with `405`/`400906`. Store `serial` per number in `number_inventory`.
+* **`serial` is a product/project setting, not a quantity setting**: `SINGLE` project → `serial=2`, `MULTIPLE` project → `serial=1`. Admin sets `serial_mode` per product (matching the Durian project type), and every order uses it.
+* **Country must be sent when buying**: `getMobile`/`getMobileCode` accept `cuy` (2-letter country code). The app passes the product's `country_code`, so a "US" product always gets a US number.
 * **Polling**: `getMsg` has no webhook — poll every 15s, stop after 5 min (auto-expiry) or on success.
 * **Multi-number `getMsg` response** is a semicolon-delimited string, not JSON — needs custom parsing, not `JSON.parse`.
 * **Blacklisting**: only call `addBlack` after repeated failed OTP attempts or a confirmed bad number — frequent blacklisting lowers future number quality/availability.
-* **Vendor credits (`score`)** are separate from app user wallets — track vendor balance independently, likely on the admin dashboard.
-* **`secret_key`**: required only for specific `pid`s — store as optional field per product in admin config.
+* **Vendor credits (`score`)** are separate from app user wallets — surfaced on the admin dashboard as "Vendor Balance" via `getUserInfo`.
+* **`secret_key`**: required only for specific `pid`s — stored as an optional per-product field in admin config, never exposed to users.
+* **`getStatus`/`getBlack`**: implemented on the vendor client for number-status (`201` SMS received, `202` occupied, `203` not occupied) and blacklist checks (`200100` on blacklist, `400100` not on blacklist).
 * **Daily caps (`406`, `200408`)**: account-tier limits, not per-request errors to expose to end users — surface as "temporarily unavailable."
+* **Realtime stock**: both `GET /api/v1/products` and `GET /api/v1/admin/products` refresh `available_stock` from `getCountryPhoneNum` (throttled to once per 30s per process) before serving the list, so users and admins always see live vendor stock. A background job keeps it fresh when there is no traffic.

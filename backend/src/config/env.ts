@@ -17,15 +17,13 @@ export const env = {
   refreshTokenExpiryDays: Number(getEnv("REFRESH_TOKEN_EXPIRY_DAYS", "30")),
   corsOrigin: getEnv("CORS_ORIGIN", "http://localhost:3000"),
   jwtIssuer: getEnv("JWT_ISSUER", "number-reseller"),
-  vendorApiUrl: getEnv(
-    "VENDOR_API_URL",
-    "https://api.durianrcs.com/out/ext_api/"
-  ),
-  vendorUsername: getEnv("VENDOR_USERNAME", ""),
-  vendorApiKey: getEnv("VENDOR_API_KEY", ""),
-  vendorPid: getEnv("VENDOR_PID", ""),
-  vendorNoBlack: getEnv("VENDOR_NOBLACK", "0"),
+  smsbowerApiKey: getEnv("SMSBOWER_API_KEY", ""),
+  smsbowerBaseUrl: getEnv("SMSBOWER_BASE_URL", "https://smsbower.page"),
+  smsbowerWebhookEnabled: getEnv("SMSBOWER_WEBHOOK_ENABLED", "true"),
+  numberLifetimeMinutes: Number(getEnv("NUMBER_LIFETIME_MINUTES", "5")),
   otpPollingIntervalMs: Number(getEnv("OTP_POLLING_INTERVAL_MS", "15000")),
   expireNumbersIntervalMs: Number(getEnv("EXPIRE_NUMBERS_INTERVAL_MS", "300000")),
-  vendorSyncIntervalMs: Number(getEnv("VENDOR_SYNC_INTERVAL_MS", "600000")),
+  autoRefundIntervalMs: Number(getEnv("AUTO_REFUND_INTERVAL_MS", "300000")),
+  vendorSyncIntervalMs: Number(getEnv("VENDOR_SYNC_INTERVAL_MS", "60000")),
+  liveStockTtlMs: Number(getEnv("LIVE_STOCK_TTL_MS", "15000")),
 } as const;

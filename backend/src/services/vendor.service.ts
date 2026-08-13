@@ -1,87 +1,85 @@
 import { env } from "../config/env.js";
-import { AppError } from "../utils/app-error.js";
-import { vendorClient } from "../integrations/vendor/vendor.client.js";
-import {
-  mapMobileNumbers,
-  parseSmsMessages,
-} from "../integrations/vendor/vendor.mapper.js";
-import type {
-  CountryStock,
-  VendorNumber,
-  VendorSmsMessage,
-} from "../integrations/vendor/vendor.types.js";
+import { logger } from "../config/logger.js";
+import { productRepository } from "../repositories/product.repository.js";
+import { resolveVendor } from "../integrations/vendor/vendor.factory.js";
+import { vendorRouter } from "./vendor-router.service.js";
 
-interface PurchaseNumbersInput {
-  projectId: string;
-  quantity: number;
-  serial: number;
-}
+const STOCK_SYNC_TTL_MS = 30_000;
+let lastStockSyncAt = 0;
+let stockSyncInFlight: Promise<number> | null = null;
 
-interface SmsInput {
-  projectId: string;
-  phoneNumber: string;
-  serial: number;
-}
+export async function syncVendorStock(): Promise<number> {
+  if (stockSyncInFlight) return stockSyncInFlight;
 
-function assertConfigured(): void {
-  if (!env.vendorUsername || !env.vendorApiKey) {
-    throw new AppError(
-      "Vendor API is not configured. Set VENDOR_USERNAME and VENDOR_API_KEY.",
-      503
-    );
+  if (Date.now() - lastStockSyncAt < STOCK_SYNC_TTL_MS) {
+    return 0;
   }
+
+  stockSyncInFlight = (async () => {
+    const products = await productRepository.findStockSyncable();
+    if (products.length === 0) return 0;
+
+    let updated = 0;
+
+    const smsbowerProducts = products.filter((p) => p.vendor === "SMSBOWER");
+    if (smsbowerProducts.length > 0 && env.smsbowerApiKey) {
+      updated += await syncSmsBowerStock(smsbowerProducts);
+    }
+
+    lastStockSyncAt = Date.now();
+    return updated;
+  })().finally(() => {
+    stockSyncInFlight = null;
+  });
+
+  return stockSyncInFlight;
+}
+
+async function syncSmsBowerStock(
+  products: Array<{ id: string; countryCode: string; vendorCountryId: string | null; vendorProviderId: string | null; needsSync: boolean; service: string; vendorId: string | null }>
+): Promise<number> {
+  const vendor = resolveVendor("SMSBOWER");
+  const byServiceCountry = new Map<string, typeof products>();
+
+  for (const product of products) {
+    if (product.needsSync) continue;
+    const vendorCountryId = (product.vendorCountryId ?? product.countryCode ?? "").trim();
+    if (!/^\d+$/.test(vendorCountryId)) continue;
+    const key = `${product.service}::${vendorCountryId}::${product.vendorProviderId ?? ""}`;
+    const group = byServiceCountry.get(key) ?? [];
+    group.push(product);
+    byServiceCountry.set(key, group);
+  }
+
+  let updated = 0;
+  for (const [key, group] of byServiceCountry.entries()) {
+    const [service, country, providerId] = key.split("::");
+    try {
+      const availability = await vendor.getAvailability({
+        country,
+        service,
+        providerId: providerId || undefined,
+      });
+      const totalCount = availability.reduce((sum, a) => sum + a.count, 0);
+      for (const product of group) {
+        await productRepository.updateStock(product.id, totalCount);
+        updated += 1;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(
+        `SMSBower stock sync skipped for ${service}/${country}${providerId ? `/provider-${providerId}` : ""}: ${message}`
+      );
+    }
+  }
+  return updated;
 }
 
 export const vendorService = {
-  async getUserInfo() {
-    assertConfigured();
-    return vendorClient.getUserInfo();
-  },
+  vendorRouter,
 
-  async purchaseNumbers(input: PurchaseNumbersInput): Promise<VendorNumber[]> {
-    assertConfigured();
-    const numbers = await vendorClient.getMobile({
-      pid: input.projectId,
-      num: input.quantity,
-      serial: input.serial,
-      noblack: Number(env.vendorNoBlack) || 0,
-    });
-
-    const vendorNumbers = mapMobileNumbers(numbers, input.serial);
-    if (vendorNumbers.length === 0) {
-      throw new AppError("No numbers available from the vendor", 503);
-    }
-    return vendorNumbers;
-  },
-
-  async fetchSms(input: SmsInput): Promise<VendorSmsMessage[]> {
-    assertConfigured();
-    const raw = await vendorClient.getMsg({
-      pid: input.projectId,
-      pn: input.phoneNumber,
-      serial: input.serial,
-    });
-    return parseSmsMessages(raw);
-  },
-
-  async releaseNumber(input: SmsInput): Promise<void> {
-    assertConfigured();
-    await vendorClient.passMobile({
-      pid: input.projectId,
-      pn: input.phoneNumber,
-      serial: input.serial,
-    });
-  },
-
-  async addToBlacklist(projectId: string, phoneNumber: string): Promise<void> {
-    assertConfigured();
-    await vendorClient.addBlack({ pid: projectId, pn: phoneNumber });
-  },
-
-  async getCountryStock(projectId?: string): Promise<CountryStock> {
-    assertConfigured();
-    return vendorClient.getCountryPhoneNum({
-      pid: projectId || env.vendorPid || undefined,
-    });
+  async getVendorBalance(vendorName: string): Promise<{ balance: string; currency: string }> {
+    const vendor = resolveVendor(vendorName);
+    return vendor.getBalance();
   },
 };

@@ -1,78 +1,63 @@
-export interface VendorApiResponse<T = unknown> {
-  code: number;
-  msg: string;
-  data: T;
+export interface VendorBalance {
+  balance: string;
+  currency: string;
 }
 
-export interface VendorUserInfo {
-  username: string;
-  score: number;
-  create_date: string;
+export interface VendorService {
+  code: string;
+  name: string;
 }
 
-export interface GetMobileParams {
-  cuy?: string;
-  pex?: string;
-  pid: string;
-  num: number;
-  noblack: number;
-  serial: number;
-  secret_key?: string;
+export interface VendorCountry {
+  id: number;
+  name: string;
+  isoCode?: string;
+}
+
+export interface VendorAvailability {
+  country: string;
+  service: string;
+  cost: string;
+  count: number;
+  providerId?: string;
+}
+
+export interface VendorPurchaseParams {
+  service: string;
+  country: string;
+  maxPrice?: string;
+  minPrice?: string;
+  quantity: number;
+  secretKey?: string;
   vip?: string;
+  providerIds?: string;
 }
 
-export type GetMobileResult = string | string[];
-
-export interface GetMobileCodeParams {
-  cuy?: string;
-  pex?: string;
-  pid: string;
-  num: number;
-  noblack: number;
-  serial: number;
-  secret_key?: string;
-  vip?: string;
-}
-
-export type GetMobileCodeResult = string | string[];
-
-export interface GetMsgParams {
-  pid: string;
-  pn: string;
-  serial: number;
-}
-
-export type GetMsgResult = string;
-
-export interface PassMobileParams {
-  pid: string;
-  pn: string;
-  serial: number;
-}
-
-export interface AddBlackParams {
-  pid: string;
-  pn: string;
-}
-
-export interface GetStatusParams {
-  pid: string;
-  pn: string;
-}
-
-export interface GetCountryPhoneNumParams {
-  pid?: string;
-  vip?: string;
-}
-
-export type CountryStock = Record<string, number>;
-
-export interface VendorNumber {
+export interface VendorActivation {
+  vendorActivationId: string;
   phoneNumber: string;
-  serial: number;
+  cost: string;
+  countryCode: string;
+  canGetAnotherSms: boolean | null;
+  operator?: string | null;
+  additionalData?: Record<string, unknown>;
 }
 
-export interface VendorSmsMessage {
-  rawMessage: string;
-  otpCode: string;
+export interface VendorActivationStatus {
+  status: "WAITING" | "SMS_RECEIVED" | "CANCELLED" | "COMPLETED";
+  otp?: string;
+}
+
+export interface VendorActionResult {
+  success: boolean;
+  message: string;
+}
+
+export interface SmsBowerWebhookPayload {
+  activationId: number;
+  service: string;
+  text: string;
+  code: string;
+  country: number;
+  receivedAt: string;
 }
