@@ -1,28 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, ArrowRight, BookOpen, Clock3 } from "lucide-react";
 
 import { WalletHero } from "@/components/dashboard/wallet-hero";
-import { BuyModal } from "@/components/orders/buy-modal";
-import { ProductCard } from "@/components/numbers/product-card";
+import { NumberPurchaseSection } from "@/components/numbers/number-purchase-section";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
-import { getProducts } from "@/services/product.service";
 import { getDashboard } from "@/services/dashboard.service";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAuthStore } from "@/store/auth.store";
-import type { ProductSummary } from "@/types/content.types";
 
 export default function DashboardPage() {
-  const [buyingProduct, setBuyingProduct] = useState<ProductSummary | null>(
-    null,
-  );
   const user = useAuthStore((state) => state.user);
 
   const dashboardQuery = useQuery({
@@ -30,34 +23,22 @@ export default function DashboardPage() {
     queryFn: getDashboard,
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["products"],
-    queryFn: () => getProducts({ limit: 12 }),
-  });
-
-  if (dashboardQuery.isLoading || productsQuery.isLoading) {
+  if (dashboardQuery.isLoading) {
     return <LoadingState label="Loading dashboard..." />;
   }
 
-  if (
-    dashboardQuery.isError ||
-    productsQuery.isError ||
-    !dashboardQuery.data ||
-    !productsQuery.data
-  ) {
+  if (dashboardQuery.isError || !dashboardQuery.data) {
     return (
       <ErrorState
         message="Unable to load your dashboard."
         onRetry={() => {
           void dashboardQuery.refetch();
-          void productsQuery.refetch();
         }}
       />
     );
   }
 
   const dashboard = dashboardQuery.data;
-  const products = productsQuery.data;
 
   return (
     <div className="space-y-8">
@@ -93,7 +74,7 @@ export default function DashboardPage() {
               Available Numbers
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Pick a service and start receiving OTPs
+              Browse available numbers and start receiving OTPs
             </p>
           </div>
           <Link
@@ -103,22 +84,7 @@ export default function DashboardPage() {
             My numbers <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        {products.items.length === 0 ? (
-          <EmptyState
-            title="No products available"
-            description="New numbers are added regularly. Please check back soon."
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {products.items.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onBuy={setBuyingProduct}
-              />
-            ))}
-          </div>
-        )}
+        <NumberPurchaseSection />
       </section>
 
       <section>
@@ -175,11 +141,6 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
-
-      <BuyModal
-        product={buyingProduct}
-        onClose={() => setBuyingProduct(null)}
-      />
     </div>
   );
 }
