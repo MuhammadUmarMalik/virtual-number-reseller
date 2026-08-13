@@ -1,14 +1,21 @@
 import { prisma } from "../config/database.js";
+import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { numberRepository } from "../repositories/number.repository.js";
 import { createNotification } from "../services/audit.service.js";
 import { syncNumberOtps } from "../services/number.service.js";
+import { realtime } from "../realtime/events.js";
 
 const POLL_BATCH = 50;
 
 export async function runOtpPolling() {
   const now = new Date();
-  const numbers = await numberRepository.listForOtpPolling(now, POLL_BATCH);
+  const lastPolledBefore = new Date(now.getTime() - env.otpPollingIntervalMs);
+  const numbers = await numberRepository.listForOtpPolling(
+    now,
+    POLL_BATCH,
+    lastPolledBefore
+  );
   if (numbers.length === 0) return;
 
   let newOtps = 0;
@@ -23,6 +30,7 @@ export async function runOtpPolling() {
           message: `A new OTP was received for ${number.phoneNumber}.`,
           type: "OTP",
         });
+        realtime.emitToUser(number.userId, "otp", { numberId: number.id });
       }
     } catch (error) {
       logger.error(`OTP polling failed for number ${number.id}`, error);
