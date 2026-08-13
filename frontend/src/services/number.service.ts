@@ -27,3 +27,19 @@ export async function checkOtp(numberId: string): Promise<OtpCheckResult> {
     method: "POST",
   });
 }
+
+export async function requestAnotherSms(
+  numberId: string
+): Promise<{ message: string }> {
+  return apiClient<{ message: string }>(`/numbers/${numberId}/another-sms`, {
+    method: "POST",
+  });
+}
+
+export async function completeActivation(
+  numberId: string
+): Promise<{ message: string }> {
+  return apiClient<{ message: string }>(`/numbers/${numberId}/complete`, {
+    method: "POST",
+  });
+}
