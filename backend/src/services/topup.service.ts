@@ -118,13 +118,20 @@ export const topupService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.topupRequest.update({
-        where: { id: topupId },
+      const claimed = await tx.topupRequest.updateMany({
+        where: { id: topupId, status: { in: ["PENDING", "UNDER_REVIEW"] } },
         data: {
           status: "APPROVED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
         },
+      });
+      if (claimed.count === 0) {
+        throw new AppError("Top-up request is no longer pending", 400);
+      }
+
+      const updated = await tx.topupRequest.findUniqueOrThrow({
+        where: { id: topupId },
       });
 
       await creditWallet(tx, {
@@ -168,14 +175,21 @@ export const topupService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.topupRequest.update({
-        where: { id: topupId },
+      const claimed = await tx.topupRequest.updateMany({
+        where: { id: topupId, status: { in: ["PENDING", "UNDER_REVIEW"] } },
         data: {
           status: "REJECTED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
           rejectionReason: reason,
         },
+      });
+      if (claimed.count === 0) {
+        throw new AppError("Top-up request is no longer pending", 400);
+      }
+
+      const updated = await tx.topupRequest.findUniqueOrThrow({
+        where: { id: topupId },
       });
 
       await createNotification(tx, {

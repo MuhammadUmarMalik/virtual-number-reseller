@@ -17,9 +17,6 @@ import {
 } from "@/schemas/topup.schema";
 import { createTopup, getPaymentAccounts } from "@/services/topup.service";
 
-const TOPUP_ACCOUNT_NAME = "Number Reseller PVT";
-const TOPUP_ACCOUNT_NUMBER = "0317-1600808";
-const TOPUP_ACCOUNT_METHOD = "EASYPAISA";
 const TOPUP_WHATSAPP_NUMBER = "03062617205";
 
 interface TopupModalProps {
@@ -37,9 +34,7 @@ export function TopupModal({ onClose }: TopupModalProps) {
   });
 
   const account =
-    accountsQuery.data?.find(
-      (acc) => acc.paymentMethod === TOPUP_ACCOUNT_METHOD
-    ) ??
+    accountsQuery.data?.find((acc) => acc.isActive) ??
     accountsQuery.data?.[0] ??
     null;
 
@@ -156,17 +151,19 @@ export function TopupModal({ onClose }: TopupModalProps) {
                       </p>
                     ) : (
                       <>
-                        <p className="text-sm font-semibold">Easypaisa Wallet</p>
+                        <p className="text-sm font-semibold">
+                          {account?.title ?? "Easypaisa Wallet"}
+                        </p>
                         <p className="mt-0.5 text-sm text-muted-foreground">
                           Account Name:{" "}
                           <span className="font-medium text-foreground">
-                            {TOPUP_ACCOUNT_NAME}
+                            {account?.accountName ?? "—"}
                           </span>
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Account Number:{" "}
                           <span className="font-mono font-medium text-foreground">
-                            {TOPUP_ACCOUNT_NUMBER}
+                            {account?.accountNumber ?? "—"}
                           </span>
                         </p>
                         <p className="text-sm text-muted-foreground">
