@@ -10,13 +10,12 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { useAppStore } from "@/store/app.store";
 import { useAuthStore } from "@/store/auth.store";
 
-interface AdminShellProps {
+interface DashboardShellProps {
   items: SidebarNavItem[];
-  title: string;
   children: ReactNode;
 }
 
-export function AdminShell({ items, title, children }: AdminShellProps) {
+export function DashboardShell({ items, children }: DashboardShellProps) {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -28,8 +27,8 @@ export function AdminShell({ items, title, children }: AdminShellProps) {
       router.replace("/sign-in");
       return;
     }
-    if (user.role !== "ADMIN") {
-      router.replace("/dashboard");
+    if (user.role === "ADMIN") {
+      router.replace("/admin/dashboard");
     }
   }, [isLoading, router, user]);
 
@@ -41,17 +40,16 @@ export function AdminShell({ items, title, children }: AdminShellProps) {
     );
   }
 
-  if (user.role !== "ADMIN") {
-    return null;
-  }
-
   return (
     <div className="flex min-h-screen bg-background">
       <div className="fixed inset-y-0 left-0 z-40 hidden lg:block">
-        <Sidebar items={items} brand={title} footer={<UserMenu />} />
+        <Sidebar
+          items={items}
+          footer={<UserMenu />}
+        />
       </div>
       <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
-        <Navbar onMenuClick={() => setSidebarOpen(true)} showBalance={false} />
+        <Navbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
       <MobileMenu items={items} />

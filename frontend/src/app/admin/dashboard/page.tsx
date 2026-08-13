@@ -48,6 +48,11 @@ export default function AdminDashboardPage() {
         <StatCard title="Total Deposits" value={formatCurrency(data.totalDeposits)} icon={<DollarSign className="h-5 w-5" />} />
         <StatCard title="Total Purchases" value={formatCurrency(data.totalPurchases)} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard title="Available Stock" value={data.availableStock} icon={<Package className="h-5 w-5" />} />
+        <StatCard
+          title="Vendor Balance"
+          value={data.vendorBalance === null ? "N/A" : data.vendorBalance}
+          icon={<DollarSign className="h-5 w-5" />}
+        />
       </div>
     </div>
   );
