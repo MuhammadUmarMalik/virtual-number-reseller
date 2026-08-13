@@ -13,7 +13,22 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
-import { getOrder } from "@/services/order.service";
+import { getOrder, getOrderStatus } from "@/services/order.service";
+
+const POLL_INTERVAL_MS = 5000;
+const ACTIVE_NUMBER_STATUSES = new Set(["WAITING", "ACTIVE", "RECEIVED"]);
+
+function hasPendingNumbers(
+  numbers: Array<{ status: string; expiresAt?: string | null }> | undefined
+): boolean {
+  return Boolean(
+    numbers?.some(
+      (number) =>
+        ACTIVE_NUMBER_STATUSES.has(number.status) &&
+        (!number.expiresAt || new Date(number.expiresAt).getTime() > Date.now())
+    )
+  );
+}
 
 export default function OrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -25,18 +40,29 @@ export default function OrderDetailPage() {
     enabled: Boolean(orderId),
   });
 
+  const order = query.data;
+
+  const statusQuery = useQuery({
+    queryKey: ["orders", orderId, "status"],
+    queryFn: () => getOrderStatus(orderId),
+    enabled: Boolean(orderId) && hasPendingNumbers(order?.numbers),
+    refetchInterval: (data) =>
+      hasPendingNumbers(data.state.data?.numbers) ? POLL_INTERVAL_MS : false,
+  });
+
   if (query.isLoading) {
     return <LoadingState label="Loading order..." />;
   }
 
-  if (query.isError || !query.data) {
+  if (query.isError || !order) {
     return <ErrorState message="Unable to load this order." />;
   }
 
-  const order = query.data;
   const canRefund = ["ACTIVE", "WAITING_OTP", "OTP_RECEIVED", "COMPLETED"].includes(
     order.status
   );
+
+  const liveNumbers = statusQuery.data?.numbers ?? order.numbers;
 
   return (
     <div className="space-y-6">
@@ -119,13 +145,13 @@ export default function OrderDetailPage() {
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Numbers</h2>
         <div className="rounded-xl border border-border bg-card p-5">
-          {!order.numbers || order.numbers.length === 0 ? (
+          {!liveNumbers || liveNumbers.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No numbers available for this order yet.
             </p>
           ) : (
             <ul className="space-y-3">
-              {order.numbers.map((number) => (
+              {liveNumbers.map((number) => (
                 <li
                   key={number.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
@@ -137,6 +163,11 @@ export default function OrderDetailPage() {
                     <StatusBadge status={number.status} />
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    {"otpCode" in number && number.otpCode && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-mono font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        Code: {number.otpCode}
+                      </span>
+                    )}
                     <span>OTPs: {number.otpCount}</span>
                     <span>
                       Expires:{" "}

@@ -11,6 +11,7 @@ router.use(authenticate);
 
 router.get("/", orderController.list);
 router.post("/", validate(createOrderSchema), orderController.create);
+router.get("/:orderId/status", orderController.getStatus);
 router.get("/:orderId", orderController.getById);
 
 export default router;
