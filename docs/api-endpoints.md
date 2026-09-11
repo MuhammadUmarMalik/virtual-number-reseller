@@ -557,6 +557,41 @@ PATCH /api/v1/admin/settings
 
 ---
 
+## 22. Exchange Rates
+
+Public — no auth required.
+
+```
+GET /api/v1/exchange-rates
+```
+
+Returns the latest USD-based exchange rates cached from `https://open.er-api.com/v6/latest/USD`.
+
+**Response**
+
+```json
+{
+  "success": true,
+  "message": "Exchange rates retrieved",
+  "data": {
+    "rates": { "USD": 1, "PKR": 278.5, "INR": 83.2, "GBP": 0.79, "EUR": 0.92 },
+    "updatedAt": "2026-08-13T10:00:00.000Z"
+  }
+}
+```
+
+**Behaviour**
+
+* Rates are refreshed by a background job (`sync-exchange-rates`) every 6–12 hours.
+* If the external API is unreachable or returns `result !== "success"`, the last known rates are returned and a warning is logged.
+* Prices are stored and charged in PKR and displayed converted into the selected currency at runtime; converted prices are never stored.
+
+**Top-up requests**
+
+Top-up amounts are entered and stored in PKR. `currency` and `displayAmount` are optional audit fields recording the currency the user entered an amount in and the value as entered.
+
+---
+
 ## Common Success Response
 
 ```
