@@ -24,6 +24,15 @@ enum ProductStatus {
   OUT_OF_STOCK
 }
 
+enum Vendor {
+  SMSBOWER
+}
+
+enum SerialMode {
+  SINGLE
+  MULTIPLE
+}
+
 enum OrderStatus {
   PENDING
   PROCESSING
@@ -120,6 +129,7 @@ model User {
   passwordHash   String     @map("password_hash")
   role           Role       @default(USER)
   status         UserStatus @default(ACTIVE)
+  deletedAt      DateTime?  @map("deleted_at")
   avatarUrl      String?    @map("avatar_url")
   emailVerified  Boolean    @default(false) @map("email_verified")
   lastLoginAt    DateTime?  @map("last_login_at")
@@ -215,6 +225,8 @@ model TopupRequest {
   userId           String     @map("user_id")
   paymentAccountId String     @map("payment_account_id")
   amount           Decimal
+  currency         String     @default("USD") @map("currency")
+  displayAmount    Decimal?   @map("display_amount")
   senderAccount    String     @map("sender_account")
   transactionId    String?    @map("transaction_id")
   screenshotUrl    String?    @map("screenshot_url")
@@ -237,18 +249,28 @@ model TopupRequest {
 
 model Product {
   id                String        @id @default(cuid())
+  vendor            Vendor        @default(SMSBOWER) @map("vendor")
   vendorId          String?       @map("vendor_id")
-  name              String
+  vendorCountryId   String?       @map("vendor_country_id")
+  vendorProviderId  String?       @map("vendor_provider_id")
+  needsSync         Boolean       @default(false) @map("needs_sync")
+  name              String        @unique
   slug              String        @unique
   country           String
   countryCode       String        @map("country_code")
+  countryDialCode   String?       @map("country_dial_code")
   service           String
   numberType        String        @map("number_type")
   description       String?
   vendorCost        Decimal       @map("vendor_cost")
   sellingPrice      Decimal       @map("selling_price")
+  marginMultiplier  Decimal       @default(1.5) @db.Decimal(10, 2) @map("margin_multiplier")
   refundWindowHours Int           @default(3) @map("refund_window_hours")
   availableStock    Int           @default(0) @map("available_stock")
+  lastSyncedAt      DateTime?     @map("last_synced_at")
+  serialMode        SerialMode    @default(SINGLE) @map("serial_mode")
+  secretKey         String?       @map("secret_key")
+  vip               String?
   status            ProductStatus @default(ACTIVE)
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
@@ -258,20 +280,25 @@ model Product {
 
   @@index([status])
   @@index([availableStock])
+  @@index([vendor])
+  @@index([vendor, service, country])
   @@map("products")
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  orderCode     String      @unique @map("order_code")
-  userId        String      @map("user_id")
-  subtotal      Decimal     @map("subtotal")
-  total         Decimal     @map("total")
-  status        OrderStatus @default(PENDING)
-  failureReason String?     @map("failure_reason")
-  completedAt   DateTime?   @map("completed_at")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  id                 String      @id @default(cuid())
+  orderCode          String      @unique @map("order_code")
+  userId             String      @map("user_id")
+  subtotal           Decimal     @map("subtotal")
+  total              Decimal     @map("total")
+  status             OrderStatus @default(PENDING)
+  failureReason      String?     @map("failure_reason")
+  idempotencyKey     String?     @unique @map("idempotency_key")
+  vendor             Vendor      @default(SMSBOWER) @map("vendor")
+  vendorActivationId String?     @map("vendor_activation_id")
+  completedAt        DateTime?   @map("completed_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   numbers    PurchasedNumber[]
@@ -281,6 +308,8 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([vendor])
+  @@index([vendorActivationId])
   @@map("orders")
 }
 
@@ -305,21 +334,27 @@ model OrderItem {
 }
 
 model PurchasedNumber {
-  id             String       @id @default(cuid())
-  userId         String       @map("user_id")
-  orderId        String       @map("order_id")
-  orderItemId    String?      @map("order_item_id")
-  productId      String       @map("product_id")
-  vendorId       String?      @map("vendor_id")
-  phoneNumber    String       @map("phone_number")
-  vendorOrderId  String?      @map("vendor_order_id")
-  status         NumberStatus @default(WAITING)
-  otpCount       Int          @default(0) @map("otp_count")
-  purchasedAt    DateTime     @default(now()) @map("purchased_at")
-  expiresAt      DateTime?    @map("expires_at")
-  lastCheckedAt  DateTime?    @map("last_checked_at")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                 String       @id @default(cuid())
+  userId             String       @map("user_id")
+  orderId            String       @map("order_id")
+  orderItemId        String?      @map("order_item_id")
+  productId          String       @map("product_id")
+  vendorId           String?      @map("vendor_id")
+  phoneNumber        String       @map("phone_number")
+  vendorOrderId      String?      @map("vendor_order_id")
+  status             NumberStatus @default(WAITING)
+  otpCount           Int          @default(0) @map("otp_count")
+  pollAttempts       Int          @default(0) @map("poll_attempts")
+  vendor             Vendor       @default(SMSBOWER) @map("vendor")
+  vendorActivationId String?      @map("vendor_activation_id")
+  vendorCost         Decimal?     @map("vendor_cost")
+  vendorOperator     String?      @map("vendor_operator")
+  canGetAnotherSms   Boolean?     @map("can_get_another_sms")
+  purchasedAt        DateTime     @default(now()) @map("purchased_at")
+  expiresAt          DateTime?    @map("expires_at")
+  lastCheckedAt      DateTime?    @map("last_checked_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -332,6 +367,8 @@ model PurchasedNumber {
   @@index([orderItemId])
   @@index([productId])
   @@index([status])
+  @@index([vendor])
+  @@index([vendorActivationId])
   @@map("purchased_numbers")
 }
 
@@ -438,4 +475,13 @@ model AuditLog {
   @@index([entityType])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model ExchangeRate {
+  id        String   @id @default(uuid())
+  currency  String   @unique // "PKR", "USD", "INR", etc.
+  rate      Decimal  // 1 USD = rate * currency
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("exchange_rates")
 }
