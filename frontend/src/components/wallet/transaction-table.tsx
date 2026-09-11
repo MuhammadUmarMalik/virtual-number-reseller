@@ -1,6 +1,6 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import type { WalletTransaction } from "@/types/wallet.types";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -30,6 +30,7 @@ function isCredit(type: string): boolean {
 function AmountLabel({ transaction }: { transaction: WalletTransaction }) {
   const credit = isCredit(transaction.type);
   const amount = Number(transaction.amount);
+  const { formatPrice } = useCurrency();
   return (
     <span
       className={`font-semibold ${
@@ -39,7 +40,7 @@ function AmountLabel({ transaction }: { transaction: WalletTransaction }) {
       }`}
     >
       {credit ? "+" : "-"}
-      {formatCurrency(amount)}
+      {formatPrice(amount)}
     </span>
   );
 }

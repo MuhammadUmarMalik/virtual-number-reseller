@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { productRepository } from "../repositories/product.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
@@ -11,8 +12,9 @@ function toString(value: { toString(): string }): string {
 function serializeProduct(product: {
   sellingPrice: { toString(): string };
   vendorCost?: unknown;
+  secretKey?: unknown;
 } & Record<string, unknown>) {
-  const { vendorCost: _vendorCost, ...rest } = product;
+  const { vendorCost: _vendorCost, secretKey: _secretKey, ...rest } = product;
   return { ...rest, sellingPrice: toString(product.sellingPrice) };
 }
 
@@ -76,6 +78,21 @@ export const productService = {
     if (!existing) {
       throw new AppError("Product not found", 404);
     }
-    await productRepository.delete(productId);
+    try {
+      await productRepository.delete(productId);
+    } catch (error) {
+      const isFkViolation =
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2003") ||
+        (error instanceof Prisma.PrismaClientUnknownRequestError &&
+          /foreign key|restrict|23001/i.test(error.message));
+      if (isFkViolation) {
+        throw new AppError(
+          "This product has existing orders and cannot be deleted. Disable it instead.",
+          409
+        );
+      }
+      throw error;
+    }
   },
 };

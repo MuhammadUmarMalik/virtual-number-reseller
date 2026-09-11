@@ -11,6 +11,7 @@ import type {
   PaymentMethod,
   TopupRequest,
 } from "@/types/wallet.types";
+import type { PurchasedNumberStatus } from "@/types/number.types";
 
 export async function getAdminUsers(params?: {
   page?: number;
@@ -77,6 +78,29 @@ export async function debitUserWallet(
   });
 }
 
+export interface UpdateAdminUserPayload {
+  fullName?: string;
+  email?: string;
+  whatsappNumber?: string;
+  avatarUrl?: string;
+}
+
+export async function updateAdminUser(
+  userId: string,
+  payload: UpdateAdminUserPayload
+): Promise<AuthUser> {
+  return apiClient<AuthUser>(`/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminUser(userId: string): Promise<AuthUser> {
+  return apiClient<AuthUser>(`/admin/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getAdminTopups(params?: {
   page?: number;
   limit?: number;
@@ -131,6 +155,7 @@ export interface CreatePaymentAccountPayload {
   accountNumber: string;
   paymentMethod: PaymentMethod;
   instructions?: string;
+  isActive?: boolean;
 }
 
 export async function createPaymentAccount(
@@ -184,10 +209,19 @@ export interface CreateProductPayload {
   countryCode: string;
   service: string;
   numberType: string;
+  vendor?: "SMSBOWER";
   description?: string;
+  vendorId?: string;
+  vendorCountryId?: string;
+  vendorProviderId?: string;
   sellingPrice: number;
+  vendorCost?: number;
+  marginMultiplier?: number;
   refundWindowHours: number;
   availableStock: number;
+  serialMode?: "SINGLE" | "MULTIPLE";
+  secretKey?: string;
+  vip?: string;
   status?: "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 }
 
@@ -210,8 +244,122 @@ export async function updateProduct(
   });
 }
 
+export interface VendorStockResponse {
+  vendor: string;
+  available: number;
+  notAvailable?: boolean;
+  vendorCost?: number | null;
+}
+
+export async function getVendorStock(params: {
+  vendor: string;
+  country?: string;
+  service?: string;
+}): Promise<VendorStockResponse> {
+  const query = new URLSearchParams();
+  query.set("vendor", params.vendor);
+  if (params.country) query.set("country", params.country);
+  if (params.service) query.set("service", params.service);
+
+  const qs = query.toString();
+  return apiClient<VendorStockResponse>(
+    `/admin/products/vendor-stock${qs ? `?${qs}` : ""}`
+  );
+}
+
+export type SyncProductStockResult = Product & {
+  syncedAt?: string;
+  notAvailable?: boolean;
+};
+
+export async function syncProductStock(
+  productId: string
+): Promise<SyncProductStockResult> {
+  return apiClient<SyncProductStockResult>(
+    `/admin/products/${productId}/sync-stock`,
+    {
+      method: "POST",
+    }
+  );
+}
+
 export async function deleteProduct(productId: string): Promise<void> {
   return apiClient<void>(`/admin/products/${productId}`, {
+    method: "DELETE",
+  });
+}
+
+export interface AdminPurchasedNumber {
+  id: string;
+  userId: string;
+  orderId: string;
+  productId: string;
+  phoneNumber: string;
+  vendorOrderId?: string | null;
+  status: PurchasedNumberStatus;
+  otpCount: number;
+  vendorCost?: string | null;
+  vendorOperator?: string | null;
+  canGetAnotherSms?: boolean | null;
+  expiresAt?: string | null;
+  purchasedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+    whatsappNumber: string;
+  } | null;
+  product?: {
+    id: string;
+    name: string;
+    service: string;
+    country: string;
+  } | null;
+}
+
+export async function getAdminNumbers(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+}): Promise<PaginatedResponse<AdminPurchasedNumber>> {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+
+  const qs = query.toString();
+  return apiClient<PaginatedResponse<AdminPurchasedNumber>>(
+    `/admin/numbers${qs ? `?${qs}` : ""}`
+  );
+}
+
+export interface UpdateAdminNumberPayload {
+  phoneNumber?: string;
+  status?: PurchasedNumberStatus;
+  expiresAt?: string | null;
+  vendorOrderId?: string | null;
+  vendorOperator?: string | null;
+  canGetAnotherSms?: boolean | null;
+  otpCount?: number;
+}
+
+export async function updateAdminNumber(
+  numberId: string,
+  payload: UpdateAdminNumberPayload
+): Promise<AdminPurchasedNumber> {
+  return apiClient<AdminPurchasedNumber>(`/admin/numbers/${numberId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminNumber(numberId: string): Promise<void> {
+  return apiClient<void>(`/admin/numbers/${numberId}`, {
     method: "DELETE",
   });
 }
@@ -355,4 +503,78 @@ export async function updateAdminSettings(
     method: "PATCH",
     body: JSON.stringify(settings),
   });
+}
+
+export interface SmsBowerService {
+  code: string;
+  name: string;
+}
+
+export interface SmsBowerCountry {
+  id: number;
+  name: string;
+}
+
+export interface SmsBowerStockItem {
+  service: string;
+  serviceName: string;
+  country: string;
+  countryId: string;
+  count: number;
+  price: number;
+  providerId: number;
+}
+
+export interface SmsBowerTopCountry {
+  country: string;
+  price: number;
+  count: number;
+  partnerId: string;
+}
+
+export async function getSmsBowerServices(): Promise<SmsBowerService[]> {
+  const res = await apiClient<{ services: SmsBowerService[] }>(
+    "/admin/smsbower/services"
+  );
+  return res.services;
+}
+
+export async function getSmsBowerCountries(): Promise<SmsBowerCountry[]> {
+  const res = await apiClient<{ countries: SmsBowerCountry[] }>(
+    "/admin/smsbower/countries"
+  );
+  return res.countries;
+}
+
+export async function getSmsBowerTopCountries(
+  service: string
+): Promise<SmsBowerTopCountry[]> {
+  const res = await apiClient<{ topCountries: SmsBowerTopCountry[] }>(
+    `/admin/smsbower/top-countries?service=${encodeURIComponent(service)}`
+  );
+  return res.topCountries;
+}
+
+export async function getSmsBowerStock(params: {
+  service?: string;
+  country?: string;
+}): Promise<SmsBowerStockItem[]> {
+  const query = new URLSearchParams();
+  if (params.service) query.set("service", params.service);
+  if (params.country) query.set("country", params.country);
+
+  const qs = query.toString();
+  const res = await apiClient<{ stock: SmsBowerStockItem[] }>(
+    `/admin/smsbower/stock${qs ? `?${qs}` : ""}`
+  );
+  return res.stock;
+}
+
+export async function getSmsBowerBalance(): Promise<{
+  balance: string;
+  currency: string;
+}> {
+  return apiClient<{ balance: string; currency: string }>(
+    "/admin/smsbower/balance"
+  );
 }

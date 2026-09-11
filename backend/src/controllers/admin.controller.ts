@@ -6,6 +6,9 @@ import { asyncHandler } from "../utils/async-handler.js";
 import { successResponse } from "../utils/api-response.js";
 import { parsePagination } from "../utils/pagination.js";
 import { paramString, toSingle } from "../utils/query.js";
+import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.js";
+import { AppError } from "../utils/app-error.js";
+import { env } from "../config/env.js";
 
 export const adminController = {
   dashboard: asyncHandler(async (_req: Request, res: Response) => {
@@ -43,6 +46,51 @@ export const adminController = {
       req.user!.id
     );
     res.json(successResponse("User role updated", data));
+  }),
+
+  updateUserProfile: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.updateUserProfile(
+      paramString(req.params.userId),
+      req.body,
+      req.user!.id
+    );
+    res.json(successResponse("User profile updated", data));
+  }),
+
+  deleteUser: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.deleteUser(
+      paramString(req.params.userId),
+      req.user!.id
+    );
+    res.json(successResponse("User deleted", data));
+  }),
+
+  listNumbers: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.listNumbers({
+      ...parsePagination(req.query),
+      search: toSingle(req.query.search),
+      status: toSingle(req.query.status),
+    });
+    res.json(successResponse("Numbers retrieved", data));
+  }),
+
+  getNumber: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.getNumber(paramString(req.params.numberId));
+    res.json(successResponse("Number retrieved", data));
+  }),
+
+  updateNumber: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.updateNumber(
+      paramString(req.params.numberId),
+      req.body,
+      req.user!.id
+    );
+    res.json(successResponse("Number updated", data));
+  }),
+
+  deleteNumber: asyncHandler(async (req: Request, res: Response) => {
+    await adminService.deleteNumber(paramString(req.params.numberId), req.user!.id);
+    res.json(successResponse("Number deleted"));
   }),
 
   creditUserWallet: asyncHandler(async (req: Request, res: Response) => {
@@ -114,6 +162,67 @@ export const adminController = {
       status: toSingle(req.query.status),
     });
     res.json(successResponse("Products retrieved", data));
+  }),
+
+  syncProductStock: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.syncProductStock(
+      paramString(req.params.productId),
+      req.user!.id
+    );
+    res.json(successResponse("Product stock synced", data));
+  }),
+
+  getVendorStock: asyncHandler(async (req: Request, res: Response) => {
+    const vendor = toSingle(req.query.vendor) || "SMSBOWER";
+    const country = toSingle(req.query.country)?.toLowerCase();
+    const service = toSingle(req.query.service);
+
+    if (vendor !== "SMSBOWER") {
+      throw new AppError(`Vendor ${vendor} is not supported. Only SMSBower is available.`, 400);
+    }
+    if (!env.smsbowerApiKey) {
+      throw new AppError("SMSBower API key is not configured", 400);
+    }
+    if (!country || !service) {
+      throw new AppError("country and service are required for SMSBower stock check", 400);
+    }
+
+    const serviceCode = await smsbowerClient.resolveServiceCode(service);
+    const prices = await smsbowerClient.getPricesV3({
+      service: serviceCode,
+      country,
+    });
+
+    const countryData = prices[country];
+    const serviceData = countryData?.[serviceCode];
+    let total = 0;
+    let minPrice = Number.POSITIVE_INFINITY;
+
+    for (const provider of Object.values(serviceData ?? {})) {
+      total += provider.count;
+      minPrice = Math.min(minPrice, provider.price);
+    }
+
+    if (total === 0) {
+      res.json(
+        successResponse("Vendor stock retrieved", {
+          vendor,
+          available: 0,
+          notAvailable: true,
+          vendorCost: null,
+        })
+      );
+      return;
+    }
+
+    res.json(
+      successResponse("Vendor stock retrieved", {
+        vendor,
+        available: total,
+        notAvailable: false,
+        vendorCost: Number.isFinite(minPrice) ? minPrice : null,
+      })
+    );
   }),
 
   getSettings: asyncHandler(async (_req: Request, res: Response) => {

@@ -2,7 +2,7 @@ import { Package, ShoppingCart } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import type { ProductSummary } from "@/types/content.types";
 
 interface ProductCardProps {
@@ -12,6 +12,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onBuy }: ProductCardProps) {
   const outOfStock = product.availableStock <= 0;
+  const { formatPrice } = useCurrency();
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm transition-shadow hover:shadow-md">
@@ -29,7 +30,7 @@ export function ProductCard({ product, onBuy }: ProductCardProps) {
 
       <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
         <p className="text-lg font-semibold tracking-tight">
-          {formatCurrency(product.sellingPrice)}
+          {formatPrice(product.sellingPrice)}
         </p>
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <Package className="h-3.5 w-3.5" />

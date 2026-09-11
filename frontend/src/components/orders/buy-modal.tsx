@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Modal } from "@/components/ui/modal";
 import { useCreateOrder } from "@/hooks/use-orders";
+import { useCurrency } from "@/hooks/use-currency";
 import { ApiError } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format-currency";
 import {
   createOrderSchema,
   type CreateOrderFormValues,
@@ -24,6 +24,7 @@ interface BuyModalProps {
 
 export function BuyModal({ product, onClose }: BuyModalProps) {
   const createOrder = useCreateOrder();
+  const { formatPrice } = useCurrency();
   const [serverError, setServerError] = useState<string | null>(null);
 
   const {
@@ -75,7 +76,7 @@ export function BuyModal({ product, onClose }: BuyModalProps) {
   return (
     <Modal title="Buy Number" onClose={onClose}>
       <p className="mb-4 text-sm text-muted-foreground">
-        {product.name} — {formatCurrency(product.sellingPrice)} each
+        {product.name} — {formatPrice(product.sellingPrice)} each
       </p>
       <form onSubmit={handleSubmit(submitForm)} className="space-y-4" noValidate>
         {serverError && (
@@ -100,7 +101,7 @@ export function BuyModal({ product, onClose }: BuyModalProps) {
         <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm">
           <span className="text-muted-foreground">Total</span>
           <span className="font-semibold text-foreground">
-            {formatCurrency(Number(product.sellingPrice) * (quantity || 1))}
+            {formatPrice(Number(product.sellingPrice) * (quantity || 1))}
           </span>
         </div>
         <Button type="submit" className="w-full" isLoading={isSubmitting}>

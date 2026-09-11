@@ -23,6 +23,25 @@ export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
       res.status(404).json(errorResponse("Record not found"));
       return;
     }
+    if (err.code === "P2003") {
+      res
+        .status(409)
+        .json(errorResponse("Cannot delete: this record is still referenced by other data"));
+      return;
+    }
+    res.status(500).json(errorResponse("Database error"));
+    return;
+  }
+
+  if (err instanceof Prisma.PrismaClientUnknownRequestError) {
+    // Postgres FK restrict violations (e.g. code 23001) surface here rather
+    // than as a known error. Return 409 instead of a bare 500.
+    if (/foreign key|restrict|23001/i.test(err.message)) {
+      res
+        .status(409)
+        .json(errorResponse("Cannot delete: this record is still referenced by other data"));
+      return;
+    }
     res.status(500).json(errorResponse("Database error"));
     return;
   }

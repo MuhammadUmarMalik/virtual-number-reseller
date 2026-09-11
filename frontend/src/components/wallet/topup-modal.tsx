@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
-import { Building2, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2, RefreshCw, X } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -17,8 +17,6 @@ import {
 } from "@/schemas/topup.schema";
 import { createTopup, getPaymentAccounts } from "@/services/topup.service";
 
-const TOPUP_ACCOUNT_NAME = "Number Reseller PVT";
-const TOPUP_ACCOUNT_NUMBER = "0317-1600808";
 const TOPUP_ACCOUNT_METHOD = "EASYPAISA";
 const TOPUP_WHATSAPP_NUMBER = "03062617205";
 
@@ -28,6 +26,7 @@ interface TopupModalProps {
 
 export function TopupModal({ onClose }: TopupModalProps) {
   const { invalidate } = useWallet();
+  const queryClient = useQueryClient();
   const [serverError, setServerError] = useState<string | null>(null);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
 
@@ -42,6 +41,9 @@ export function TopupModal({ onClose }: TopupModalProps) {
     ) ??
     accountsQuery.data?.[0] ??
     null;
+
+  // account is null only when the payment-accounts fetch errored or returned no active rows.
+  const noAccountReady = !accountsQuery.isLoading && !account;
 
   const {
     register,
@@ -67,6 +69,7 @@ export function TopupModal({ onClose }: TopupModalProps) {
       const result = await createTopup({
         paymentAccountId: account.id,
         amount: values.amount,
+        currency: "PKR",
       });
       setWhatsappUrl(result.whatsappUrl);
       reset();
@@ -144,55 +147,82 @@ export function TopupModal({ onClose }: TopupModalProps) {
                 </div>
               )}
 
-              <div className="rounded-xl border border-border bg-muted/40 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    {accountsQuery.isLoading ? (
-                      <p className="text-sm text-muted-foreground">
-                        Loading payment details...
+              {accountsQuery.isLoading ? (
+                <div className="rounded-xl border border-border bg-muted/40 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Loading payment details...
+                  </p>
+                </div>
+              ) : account ? (
+                <div className="rounded-xl border border-border bg-muted/40 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">
+                        {account.title}
                       </p>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold">Easypaisa Wallet</p>
-                        <p className="mt-0.5 text-sm text-muted-foreground">
-                          Account Name:{" "}
-                          <span className="font-medium text-foreground">
-                            {TOPUP_ACCOUNT_NAME}
-                          </span>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Account Name:{" "}
+                        <span className="font-medium text-foreground">
+                          {account.accountName}
+                        </span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Account Number:{" "}
+                        <span className="font-mono font-medium text-foreground">
+                          {account.accountNumber}
+                        </span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        WhatsApp:{" "}
+                        <span className="font-mono font-medium text-foreground">
+                          {TOPUP_WHATSAPP_NUMBER}
+                        </span>
+                      </p>
+                      {account.instructions && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {account.instructions}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Account Number:{" "}
-                          <span className="font-mono font-medium text-foreground">
-                            {TOPUP_ACCOUNT_NUMBER}
-                          </span>
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          WhatsApp:{" "}
-                          <span className="font-mono font-medium text-foreground">
-                            {TOPUP_WHATSAPP_NUMBER}
-                          </span>
-                        </p>
-                        {account?.instructions && (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {account.instructions}
-                          </p>
-                        )}
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
+
+              {noAccountReady && (
+                <div
+                  role="alert"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+                >
+                  <span>
+                    {accountsQuery.isError
+                      ? "Payment details could not be loaded. Tap Retry to enable submission."
+                      : "No active payment method is configured yet. Please contact support."}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 px-2 py-0.5 text-xs"
+                    onClick={() =>
+                      void queryClient.resetQueries({ queryKey: ["payment-accounts"] })
+                    }
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Retry
+                  </Button>
+                </div>
+              )}
 
               <FormField
                 label="Amount (PKR)"
                 type="number"
-                inputMode="numeric"
+                inputMode="decimal"
                 min={1}
                 placeholder="Enter amount"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !account}
                 error={errors.amount?.message}
                 {...register("amount", { valueAsNumber: true })}
               />
@@ -201,7 +231,7 @@ export function TopupModal({ onClose }: TopupModalProps) {
                 type="submit"
                 className="w-full"
                 isLoading={isSubmitting}
-                disabled={accountsQuery.isLoading || !account}
+                disabled={isSubmitting || accountsQuery.isLoading || !account}
               >
                 Submit Request
               </Button>

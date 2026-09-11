@@ -12,7 +12,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import { getOrder } from "@/services/order.service";
 
 export default function OrderDetailPage() {
@@ -24,6 +24,8 @@ export default function OrderDetailPage() {
     queryFn: () => getOrder(orderId),
     enabled: Boolean(orderId),
   });
+
+  const { formatPrice } = useCurrency();
 
   if (query.isLoading) {
     return <LoadingState label="Loading order..." />;
@@ -74,10 +76,10 @@ export default function OrderDetailPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.quantity}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatCurrency(item.unitPrice)}
+                      {formatPrice(item.unitPrice)}
                     </td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      {formatCurrency(item.totalPrice)}
+                      {formatPrice(item.totalPrice)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status} />
@@ -96,13 +98,13 @@ export default function OrderDetailPage() {
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Subtotal</dt>
                 <dd className="font-medium text-foreground">
-                  {formatCurrency(order.subtotal)}
+                  {formatPrice(order.subtotal)}
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Total</dt>
                 <dd className="font-semibold text-foreground">
-                  {formatCurrency(order.total)}
+                  {formatPrice(order.total)}
                 </dd>
               </div>
               <div className="flex justify-between">
