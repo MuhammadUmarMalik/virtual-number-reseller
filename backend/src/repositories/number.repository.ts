@@ -100,4 +100,70 @@ export const numberRepository = {
       take: limit,
     });
   },
+
+  listAll(params: { page: number; limit: number; search?: string; status?: string }) {
+    const where: Prisma.PurchasedNumberWhereInput = {};
+
+    if (params.search) {
+      where.OR = [
+        { phoneNumber: { contains: params.search, mode: "insensitive" } },
+        { vendorOrderId: { contains: params.search, mode: "insensitive" } },
+        { user: { email: { contains: params.search, mode: "insensitive" } } },
+      ];
+    }
+    if (params.status) where.status = params.status as NumberStatus;
+
+    return prisma.purchasedNumber.findMany({
+      where,
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true, whatsappNumber: true },
+        },
+        product: {
+          select: { id: true, name: true, service: true, country: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (params.page - 1) * params.limit,
+      take: params.limit,
+    });
+  },
+
+  countAll(params: { search?: string; status?: string }) {
+    const where: Prisma.PurchasedNumberWhereInput = {};
+
+    if (params.search) {
+      where.OR = [
+        { phoneNumber: { contains: params.search, mode: "insensitive" } },
+        { vendorOrderId: { contains: params.search, mode: "insensitive" } },
+        { user: { email: { contains: params.search, mode: "insensitive" } } },
+      ];
+    }
+    if (params.status) where.status = params.status as NumberStatus;
+
+    return prisma.purchasedNumber.count({ where });
+  },
+
+  findByIdAdmin(id: string) {
+    return prisma.purchasedNumber.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, fullName: true, email: true, whatsappNumber: true },
+        },
+        product: {
+          select: { id: true, name: true, service: true, country: true },
+        },
+        otpMessages: { orderBy: { receivedAt: "desc" }, take: 10 },
+      },
+    });
+  },
+
+  update(id: string, data: Prisma.PurchasedNumberUpdateInput) {
+    return prisma.purchasedNumber.update({ where: { id }, data });
+  },
+
+  remove(id: string) {
+    return prisma.purchasedNumber.delete({ where: { id } });
+  },
 };

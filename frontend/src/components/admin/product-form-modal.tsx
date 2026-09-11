@@ -30,7 +30,9 @@ const productSchema = z.object({
   service: z.string().trim().min(2, "Service is required"),
   numberType: z.string().trim().min(2, "Number type is required"),
   description: z.string().trim().max(500).optional(),
+  vendorCost: z.number().min(0).optional(),
   sellingPrice: z.number().positive("Price must be greater than zero"),
+  marginMultiplier: z.number().positive().min(1).max(100).optional(),
   refundWindowHours: z
     .number()
     .min(1, "Refund window must be at least 1 hour"),
@@ -56,6 +58,7 @@ export function ProductFormModal({
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -68,7 +71,10 @@ export function ProductFormModal({
           service: product.service,
           numberType: product.numberType,
           description: product.description ?? "",
+          vendorCost: product.vendorCost != null ? Number(product.vendorCost) : undefined,
           sellingPrice: Number(product.sellingPrice),
+          marginMultiplier:
+            product.marginMultiplier != null ? Number(product.marginMultiplier) : undefined,
           refundWindowHours: product.refundWindowHours,
           availableStock: product.availableStock,
           status: product.status,
@@ -81,21 +87,46 @@ export function ProductFormModal({
           service: "",
           numberType: "",
           description: "",
+          vendorCost: undefined,
           sellingPrice: 0,
+          marginMultiplier: undefined,
           refundWindowHours: 3,
           availableStock: 0,
           status: "ACTIVE",
         },
   });
 
+  const vendorCost = watch("vendorCost");
+  const marginMultiplier = watch("marginMultiplier");
+
+  const computedPrice =
+    vendorCost != null &&
+    vendorCost > 0 &&
+    marginMultiplier != null &&
+    marginMultiplier > 0
+      ? Math.round(vendorCost * marginMultiplier * 100) / 100
+      : null;
+
   const submitForm: SubmitHandler<ProductFormValues> = async (values) => {
     setServerError(null);
     try {
       if (product) {
-        await updateProduct(product.id, values);
+        await updateProduct(product.id, {
+          ...values,
+          sellingPrice:
+            computedPrice != null && computedPrice > 0
+              ? computedPrice
+              : values.sellingPrice,
+        });
         toast.success("Product updated");
       } else {
-        await createProduct(values);
+        await createProduct({
+          ...values,
+          sellingPrice:
+            computedPrice != null && computedPrice > 0
+              ? computedPrice
+              : values.sellingPrice,
+        });
         toast.success("Product created");
       }
       onSuccess();
@@ -177,6 +208,14 @@ export function ProductFormModal({
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormField
+            label="Vendor Cost (PKR)"
+            type="number"
+            inputMode="numeric"
+            error={errors.vendorCost?.message}
+            disabled={isSubmitting}
+            {...register("vendorCost", { valueAsNumber: true })}
+          />
+          <FormField
             label="Price (PKR)"
             type="number"
             inputMode="numeric"
@@ -184,6 +223,24 @@ export function ProductFormModal({
             disabled={isSubmitting}
             {...register("sellingPrice", { valueAsNumber: true })}
           />
+          <FormField
+            label="Margin (×)"
+            type="number"
+            inputMode="numeric"
+            error={errors.marginMultiplier?.message}
+            disabled={isSubmitting}
+            {...register("marginMultiplier", { valueAsNumber: true })}
+          />
+        </div>
+        {computedPrice != null && (
+          <p className="text-xs text-muted-foreground">
+            Selling price auto-computed: {vendorCost} × {marginMultiplier} ={" "}
+            <span className="font-semibold text-foreground">
+              Rs. {computedPrice.toFixed(2)}
+            </span>
+          </p>
+        )}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             label="Refund Window (hrs)"
             type="number"

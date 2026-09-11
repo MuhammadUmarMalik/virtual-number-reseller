@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,11 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { UserEditModal } from "@/components/admin/user-edit-modal";
 import { WalletAdjustModal } from "@/components/admin/wallet-adjust-modal";
 import { ApiError } from "@/lib/api-client";
 import {
+  deleteAdminUser,
   getAdminUser,
   updateUserRole,
   updateUserStatus,
@@ -21,14 +23,37 @@ import {
 import type { UserRole, UserStatus } from "@/types/auth.types";
 
 export default function AdminUserDetailPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { userId } = useParams<{ userId: string }>();
   const [adjustingWallet, setAdjustingWallet] = useState(false);
+  const [editingUser, setEditingUser] = useState(false);
 
   const query = useQuery({
     queryKey: ["admin", "users", userId],
     queryFn: () => getAdminUser(userId),
     enabled: Boolean(userId),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAdminUser(userId),
+    onSuccess: () => {
+      toast.success("User deleted");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      router.push("/admin/users");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : "Unable to delete user"
+      );
+    },
+  });
+
+  const handleDelete = () => {
+    if (window.confirm(`Delete ${query.data?.fullName ?? "this user"}? This cannot be undone.`)) {
+      deleteMutation.mutate();
+    }
+  };
 
   const handleStatus = async (status: UserStatus) => {
     try {
@@ -155,6 +180,21 @@ export default function AdminUserDetailPage() {
                 Make Admin
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditingUser(true)}
+            >
+              Edit Profile
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={handleDelete}
+              isLoading={deleteMutation.isPending}
+            >
+              Delete User
+            </Button>
           </div>
         </Card>
       </div>
@@ -166,6 +206,17 @@ export default function AdminUserDetailPage() {
           onSuccess={() => {
             setAdjustingWallet(false);
             toast.success("Wallet updated");
+          }}
+        />
+      )}
+
+      {editingUser && (
+        <UserEditModal
+          user={user}
+          onClose={() => setEditingUser(false)}
+          onSuccess={() => {
+            setEditingUser(false);
+            void query.refetch();
           }}
         />
       )}

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Users } from "lucide-react";
+import { Pencil, Trash2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,17 +13,21 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { UserEditModal } from "@/components/admin/user-edit-modal";
 import { WalletAdjustModal } from "@/components/admin/wallet-adjust-modal";
 import { ApiError } from "@/lib/api-client";
 import {
+  deleteAdminUser,
   getAdminUsers,
   updateUserStatus,
 } from "@/services/admin.service";
-import type { UserStatus } from "@/types/auth.types";
+import type { AuthUser, UserStatus } from "@/types/auth.types";
 
 export default function AdminUsersPage() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [adjustingUserId, setAdjustingUserId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<AuthUser | null>(null);
 
   const query = useQuery({
     queryKey: ["admin", "users", page],
@@ -39,6 +43,25 @@ export default function AdminUsersPage() {
       toast.error(
         error instanceof ApiError ? error.message : "Unable to update status"
       );
+    }
+  };
+
+  const deleteMutation = useMutation({
+    mutationFn: (userId: string) => deleteAdminUser(userId),
+    onSuccess: () => {
+      toast.success("User deleted");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiError ? error.message : "Unable to delete user"
+      );
+    },
+  });
+
+  const handleDelete = (user: AuthUser) => {
+    if (window.confirm(`Delete ${user.fullName}? This cannot be undone.`)) {
+      deleteMutation.mutate(user.id);
     }
   };
 
@@ -125,9 +148,34 @@ export default function AdminUsersPage() {
                           type="button"
                           variant="outline"
                           size="sm"
+                          onClick={() => setEditingUser(user)}
+                          title="Edit profile"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => setAdjustingUserId(user.id)}
                         >
                           Wallet
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(user)}
+                          isLoading={
+                            deleteMutation.isPending &&
+                            deleteMutation.variables === user.id
+                          }
+                          title="Delete user"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span className="sr-only">Delete</span>
                         </Button>
                       </div>
                     </td>
@@ -150,6 +198,17 @@ export default function AdminUsersPage() {
           onClose={() => setAdjustingUserId(null)}
           onSuccess={() => {
             setAdjustingUserId(null);
+            void query.refetch();
+          }}
+        />
+      )}
+
+      {editingUser && (
+        <UserEditModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSuccess={() => {
+            setEditingUser(null);
             void query.refetch();
           }}
         />

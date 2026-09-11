@@ -5,7 +5,11 @@ export type ProductStatus = "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 
 export interface Product {
   id: string;
+  vendor: string;
   vendorId: string;
+  vendorCountryId?: string | null;
+  vendorProviderId?: string | null;
+  needsSync?: boolean;
   name: string;
   slug: string;
   country: string;
@@ -14,8 +18,12 @@ export interface Product {
   numberType: string;
   description?: string | null;
   sellingPrice: string;
+  vendorCost?: string | null;
+  marginMultiplier?: string | null;
   refundWindowHours: number;
   availableStock: number;
+  lastSyncedAt?: string | null;
+  serialMode?: "SINGLE" | "MULTIPLE";
   status: ProductStatus;
   createdAt: string;
   updatedAt: string;
