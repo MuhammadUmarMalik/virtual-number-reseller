@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { WalletTransactionType } from "@prisma/client";
+import { AppError } from "../utils/app-error.js";
 
 type Tx = Prisma.TransactionClient;
 
@@ -28,19 +29,19 @@ async function mutateWallet(
 ) {
   const amount = new Prisma.Decimal(input.amount.toString());
   if (amount.lte(0)) {
-    throw new Error("Amount must be greater than zero");
+    throw new AppError("Amount must be greater than zero", 400);
   }
 
   const wallet = await tx.wallet.findUnique({ where: { userId: input.userId } });
   if (!wallet) {
-    throw new Error("Wallet not found");
+    throw new AppError("Wallet not found", 404);
   }
 
   const delta = isCredit ? amount : amount.negated();
   const balanceAfter = wallet.balance.add(delta);
 
   if (balanceAfter.lt(0)) {
-    throw new Error("Insufficient wallet balance");
+    throw new AppError("Insufficient wallet balance", 400);
   }
 
   await tx.wallet.update({

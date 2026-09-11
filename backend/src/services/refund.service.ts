@@ -96,14 +96,23 @@ export const refundService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.refundRequest.update({
-        where: { id: refundId },
+      // Guard the transition inside the transaction so two concurrent admins
+      // cannot both approve the same refund (which would double-credit).
+      const claims = await tx.refundRequest.updateMany({
+        where: { id: refundId, status: "PENDING" },
         data: {
           status: "COMPLETED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
           adminNotes: notes,
         },
+      });
+      if (claims.count !== 1) {
+        throw new AppError("Only pending refunds can be approved", 400);
+      }
+
+      const updated = await tx.refundRequest.findUnique({
+        where: { id: refundId },
       });
 
       await creditWallet(tx, {
@@ -136,7 +145,7 @@ export const refundService = {
         newValue: { status: "COMPLETED", amount: toString(refund.amount) },
       });
 
-      return updated;
+      return updated!;
     });
 
     return result;
@@ -152,14 +161,21 @@ export const refundService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.refundRequest.update({
-        where: { id: refundId },
+      const claims = await tx.refundRequest.updateMany({
+        where: { id: refundId, status: "PENDING" },
         data: {
           status: "REJECTED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
           adminNotes: notes,
         },
+      });
+      if (claims.count !== 1) {
+        throw new AppError("Only pending refunds can be rejected", 400);
+      }
+
+      const updated = await tx.refundRequest.findUnique({
+        where: { id: refundId },
       });
 
       await createNotification(tx, {
@@ -177,7 +193,7 @@ export const refundService = {
         newValue: { status: "REJECTED", notes },
       });
 
-      return updated;
+      return updated!;
     });
 
     return result;
