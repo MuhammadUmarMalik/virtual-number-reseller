@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { RejectModal } from "@/components/admin/reject-modal";
 import { ApiError } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import {
   approveRefund,
   getAdminRefunds,
@@ -29,6 +29,8 @@ export default function AdminRefundsPage() {
     queryKey: ["admin", "refunds", page],
     queryFn: () => getAdminRefunds({ page, limit: 20 }),
   });
+
+  const { formatPrice } = useCurrency();
 
   const handleApprove = async (refundId: string) => {
     try {
@@ -96,7 +98,7 @@ export default function AdminRefundsPage() {
                       {refund.order?.orderCode ?? refund.orderId}
                     </td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      {formatCurrency(refund.amount)}
+                      {formatPrice(refund.amount)}
                     </td>
                     <td className="max-w-xs truncate px-4 py-3 text-muted-foreground">
                       {refund.reason}

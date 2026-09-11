@@ -25,7 +25,15 @@ export const env = {
   vendorApiKey: getEnv("VENDOR_API_KEY", ""),
   vendorPid: getEnv("VENDOR_PID", ""),
   vendorNoBlack: getEnv("VENDOR_NOBLACK", "0"),
+  smsbowerApiKey: getEnv("SMSBOWER_API_KEY", ""),
+  smsbowerBaseUrl: getEnv("SMSBOWER_BASE_URL", "https://smsbower.page"),
   otpPollingIntervalMs: Number(getEnv("OTP_POLLING_INTERVAL_MS", "15000")),
   expireNumbersIntervalMs: Number(getEnv("EXPIRE_NUMBERS_INTERVAL_MS", "300000")),
   vendorSyncIntervalMs: Number(getEnv("VENDOR_SYNC_INTERVAL_MS", "600000")),
+  exchangeRateSyncIntervalMs: Number(
+    getEnv("EXCHANGE_RATE_SYNC_INTERVAL_MS", "36000000")
+  ),
+  exchangeRateFetchTimeoutMs: Number(
+    getEnv("EXCHANGE_RATE_FETCH_TIMEOUT_MS", "10000")
+  ),
 } as const;

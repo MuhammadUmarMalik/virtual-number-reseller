@@ -14,7 +14,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/ui/stat-card";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import { getAdminDashboard } from "@/services/dashboard.service";
 
 export default function AdminDashboardPage() {
@@ -22,6 +22,8 @@ export default function AdminDashboardPage() {
     queryKey: ["admin", "dashboard"],
     queryFn: getAdminDashboard,
   });
+
+  const { formatPrice } = useCurrency();
 
   if (query.isLoading) {
     return <LoadingState label="Loading dashboard..." />;
@@ -45,8 +47,8 @@ export default function AdminDashboardPage() {
         <StatCard title="Total Orders" value={data.totalOrders} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard title="Pending Top-Ups" value={data.pendingTopups} icon={<Wallet className="h-5 w-5" />} />
         <StatCard title="Pending Refunds" value={data.pendingRefunds} icon={<Receipt className="h-5 w-5" />} />
-        <StatCard title="Total Deposits" value={formatCurrency(data.totalDeposits)} icon={<DollarSign className="h-5 w-5" />} />
-        <StatCard title="Total Purchases" value={formatCurrency(data.totalPurchases)} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard title="Total Deposits" value={formatPrice(data.totalDeposits)} icon={<DollarSign className="h-5 w-5" />} />
+        <StatCard title="Total Purchases" value={formatPrice(data.totalPurchases)} icon={<BookOpen className="h-5 w-5" />} />
         <StatCard title="Available Stock" value={data.availableStock} icon={<Package className="h-5 w-5" />} />
       </div>
     </div>

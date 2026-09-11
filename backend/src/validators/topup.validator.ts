@@ -3,6 +3,8 @@ import { z } from "zod";
 export const createTopupSchema = z.object({
   paymentAccountId: z.string().min(1, "Payment account is required"),
   amount: z.coerce.number().positive("Amount must be greater than zero"),
+  currency: z.string().trim().min(2).max(3).optional(),
+  displayAmount: z.coerce.number().positive().optional(),
   senderAccount: z.string().trim().min(3).optional().or(z.literal("")),
   transactionId: z.string().trim().min(1).optional().or(z.literal("")),
   screenshotUrl: z.string().url("Invalid screenshot URL").optional().or(z.literal("")),

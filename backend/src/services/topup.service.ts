@@ -29,6 +29,16 @@ export const topupService = {
       throw new AppError("User not found", 404);
     }
 
+    const minSetting = await prisma.appSetting.findUnique({
+      where: { key: "min_topup_amount" },
+    });
+    const minAmount = minSetting?.value
+      ? new Prisma.Decimal(minSetting.value)
+      : new Prisma.Decimal(100);
+    if (new Prisma.Decimal(input.amount.toString()).lt(minAmount)) {
+      throw new AppError(`Minimum top-up amount is Rs. ${minAmount.toString()}`, 400);
+    }
+
     const transactionId = input.transactionId?.trim() || generateCode("TXN");
 
     const existingTxn = await topupRepository.findByTransactionId(transactionId);
@@ -55,6 +65,10 @@ export const topupService = {
       userId,
       paymentAccountId: input.paymentAccountId,
       amount: new Prisma.Decimal(input.amount.toString()),
+      currency: input.currency || "PKR",
+      displayAmount: input.displayAmount
+        ? new Prisma.Decimal(input.displayAmount.toString())
+        : null,
       senderAccount,
       transactionId,
       screenshotUrl: input.screenshotUrl || null,
@@ -71,7 +85,12 @@ export const topupService = {
 
     const whatsappUrl = buildWhatsappLink(adminNumber, message);
 
-    return { ...request, amount: toString(request.amount), whatsappUrl };
+    return {
+      ...request,
+      amount: toString(request.amount),
+      displayAmount: request.displayAmount ? toString(request.displayAmount) : null,
+      whatsappUrl,
+    };
   },
 
   async listTopups(userId: string, params: { page: number; limit: number; status?: string }) {
@@ -82,7 +101,11 @@ export const topupService = {
     ]);
 
     return buildPagination(
-      items.map((item) => ({ ...item, amount: toString(item.amount) })),
+      items.map((item) => ({
+        ...item,
+        amount: toString(item.amount),
+        displayAmount: item.displayAmount ? toString(item.displayAmount) : null,
+      })),
       total,
       { page, limit }
     );
@@ -93,7 +116,11 @@ export const topupService = {
     if (!request || request.userId !== userId) {
       throw new AppError("Top-up request not found", 404);
     }
-    return { ...request, amount: toString(request.amount) };
+    return {
+      ...request,
+      amount: toString(request.amount),
+      displayAmount: request.displayAmount ? toString(request.displayAmount) : null,
+    };
   },
 
   async cancelTopup(userId: string, topupId: string) {
@@ -118,13 +145,22 @@ export const topupService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.topupRequest.update({
-        where: { id: topupId },
+      // Guard the transition inside the transaction so two concurrent admins
+      // cannot both approve the same request (which would double-credit).
+      const claims = await tx.topupRequest.updateMany({
+        where: { id: topupId, status: { in: ["PENDING", "UNDER_REVIEW"] } },
         data: {
           status: "APPROVED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
         },
+      });
+      if (claims.count !== 1) {
+        throw new AppError("Only pending requests can be approved", 400);
+      }
+
+      const updated = await tx.topupRequest.findUnique({
+        where: { id: topupId },
       });
 
       await creditWallet(tx, {
@@ -152,7 +188,7 @@ export const topupService = {
         newValue: { status: "APPROVED", amount: toString(request.amount) },
       });
 
-      return updated;
+      return updated!;
     });
 
     return result;
@@ -168,14 +204,21 @@ export const topupService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.topupRequest.update({
-        where: { id: topupId },
+      const claims = await tx.topupRequest.updateMany({
+        where: { id: topupId, status: { in: ["PENDING", "UNDER_REVIEW"] } },
         data: {
           status: "REJECTED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
           rejectionReason: reason,
         },
+      });
+      if (claims.count !== 1) {
+        throw new AppError("Only pending requests can be rejected", 400);
+      }
+
+      const updated = await tx.topupRequest.findUnique({
+        where: { id: topupId },
       });
 
       await createNotification(tx, {
@@ -193,7 +236,7 @@ export const topupService = {
         newValue: { status: "REJECTED", reason },
       });
 
-      return updated;
+      return updated!;
     });
 
     return result;
