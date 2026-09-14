@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useForm, type SubmitHandler } from "react-hook-form";
+import { useForm, useWatch, type SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export function ProductFormModal({
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -96,8 +96,8 @@ export function ProductFormModal({
         },
   });
 
-  const vendorCost = watch("vendorCost");
-  const marginMultiplier = watch("marginMultiplier");
+  const vendorCost = useWatch({ control, name: "vendorCost" });
+  const marginMultiplier = useWatch({ control, name: "marginMultiplier" });
 
   const computedPrice =
     vendorCost != null &&

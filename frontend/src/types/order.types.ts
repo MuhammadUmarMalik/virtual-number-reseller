@@ -2,6 +2,7 @@ import type { AuthUser } from "@/types/auth.types";
 import type { PurchasedNumber } from "@/types/number.types";
 
 export type ProductStatus = "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+export type ProductSource = "VENDOR" | "IMPORTED";
 
 export interface Product {
   id: string;
@@ -24,7 +25,29 @@ export interface Product {
   availableStock: number;
   lastSyncedAt?: string | null;
   serialMode?: "SINGLE" | "MULTIPLE";
+  source?: ProductSource;
+  currency?: string;
   status: ProductStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProductNumberStatus = "AVAILABLE" | "RESERVED" | "SOLD" | "DISABLED";
+
+export interface ProductNumber {
+  id: string;
+  productId: string;
+  number: string;
+  status: ProductNumberStatus;
+  purchasedNumber?: {
+    id: string;
+    otpCount: number;
+    user?: {
+      id: string;
+      fullName: string;
+      email: string;
+    } | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

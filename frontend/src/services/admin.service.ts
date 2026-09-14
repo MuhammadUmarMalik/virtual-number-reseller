@@ -5,13 +5,21 @@ import type {
   Announcement,
   AnnouncementType,
 } from "@/types/content.types";
-import type { Order, Product, RefundRequest } from "@/types/order.types";
+import type {
+  Order,
+  Product,
+  ProductNumber,
+  RefundRequest,
+} from "@/types/order.types";
 import type {
   PaymentAccount,
   PaymentMethod,
   TopupRequest,
 } from "@/types/wallet.types";
-import type { PurchasedNumberStatus } from "@/types/number.types";
+import type {
+  NumberActionResult,
+  PurchasedNumberStatus,
+} from "@/types/number.types";
 
 export async function getAdminUsers(params?: {
   page?: number;
@@ -188,7 +196,35 @@ export async function getAdminProducts(params?: {
   limit?: number;
   search?: string;
   status?: string;
+  country?: string;
+  service?: string;
+  numberType?: string;
 }): Promise<PaginatedResponse<Product>> {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.country) query.set("country", params.country);
+  if (params?.service) query.set("service", params.service);
+  if (params?.numberType) query.set("numberType", params.numberType);
+
+  const qs = query.toString();
+  return apiClient<PaginatedResponse<Product>>(
+    `/admin/products${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getProductNumbers(
+  productId: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }
+): Promise<PaginatedResponse<ProductNumber>> {
   const query = new URLSearchParams();
 
   if (params?.page) query.set("page", String(params.page));
@@ -197,9 +233,81 @@ export async function getAdminProducts(params?: {
   if (params?.status) query.set("status", params.status);
 
   const qs = query.toString();
-  return apiClient<PaginatedResponse<Product>>(
-    `/admin/products${qs ? `?${qs}` : ""}`
+  return apiClient<PaginatedResponse<ProductNumber>>(
+    `/admin/products/${productId}/numbers${qs ? `?${qs}` : ""}`
   );
+}
+
+export interface ImportProductPayload {
+  name: string;
+  country: string;
+  countryCode: string;
+  service: string;
+  numberType: string;
+  description?: string;
+  sellingPrice: number;
+  currency?: string;
+  refundWindowHours?: number;
+  status?: "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+}
+
+export interface ImportPreviewResult {
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  duplicateCount: number;
+  validRows: Array<{ row: number; number: string }>;
+  invalidRows: Array<{ row: number; number: string; errors: string[] }>;
+}
+
+export interface ImportResult {
+  imported: number;
+  duplicates: number;
+  invalid: number;
+  total: number;
+  accepted: number;
+  product: Product;
+}
+
+function toImportFormData(
+  payload: ImportProductPayload,
+  file: File
+): FormData {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", payload.name);
+  form.append("country", payload.country);
+  form.append("countryCode", payload.countryCode);
+  form.append("service", payload.service);
+  form.append("numberType", payload.numberType);
+  form.append("sellingPrice", String(payload.sellingPrice));
+  if (payload.description) form.append("description", payload.description);
+  if (payload.currency) form.append("currency", payload.currency);
+  if (payload.refundWindowHours != null) {
+    form.append("refundWindowHours", String(payload.refundWindowHours));
+  }
+  if (payload.status) form.append("status", payload.status);
+  return form;
+}
+
+export async function importProductPreview(
+  payload: ImportProductPayload,
+  file: File
+): Promise<ImportPreviewResult> {
+  return apiClient<ImportPreviewResult>("/admin/products/import/preview", {
+    method: "POST",
+    body: toImportFormData(payload, file),
+  });
+}
+
+export async function importProduct(
+  payload: ImportProductPayload,
+  file: File
+): Promise<ImportResult> {
+  return apiClient<ImportResult>("/admin/products/import", {
+    method: "POST",
+    body: toImportFormData(payload, file),
+  });
 }
 
 export interface CreateProductPayload {
@@ -296,13 +404,25 @@ export interface AdminPurchasedNumber {
   productId: string;
   phoneNumber: string;
   vendorOrderId?: string | null;
+  vendor?: string | null;
+  vendorActivationId?: string | null;
+  vendorOperator?: string | null;
   status: PurchasedNumberStatus;
   otpCount: number;
   vendorCost?: string | null;
-  vendorOperator?: string | null;
+  sellingPrice?: string | null;
+  currency?: string | null;
+  country?: string | null;
+  service?: string | null;
+  provider?: string | null;
+  activationStatus?: string | null;
+  activationStartedAt?: string | null;
+  activationCompletedAt?: string | null;
+  cancelledAt?: string | null;
   canGetAnotherSms?: boolean | null;
   expiresAt?: string | null;
   purchasedAt: string;
+  lastCheckedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: {
@@ -317,6 +437,12 @@ export interface AdminPurchasedNumber {
     service: string;
     country: string;
   } | null;
+  otpMessages?: Array<{
+    id: string;
+    rawMessage: string;
+    otpCode: string | null;
+    receivedAt: string;
+  }> | null;
 }
 
 export async function getAdminNumbers(params?: {
@@ -324,6 +450,9 @@ export async function getAdminNumbers(params?: {
   limit?: number;
   search?: string;
   status?: string;
+  country?: string;
+  service?: string;
+  activationStatus?: string;
 }): Promise<PaginatedResponse<AdminPurchasedNumber>> {
   const query = new URLSearchParams();
 
@@ -331,11 +460,41 @@ export async function getAdminNumbers(params?: {
   if (params?.limit) query.set("limit", String(params.limit));
   if (params?.search) query.set("search", params.search);
   if (params?.status) query.set("status", params.status);
+  if (params?.country) query.set("country", params.country);
+  if (params?.service) query.set("service", params.service);
+  if (params?.activationStatus) {
+    query.set("activationStatus", params.activationStatus);
+  }
 
   const qs = query.toString();
   return apiClient<PaginatedResponse<AdminPurchasedNumber>>(
     `/admin/numbers${qs ? `?${qs}` : ""}`
   );
+}
+
+export async function getAdminNumber(numberId: string): Promise<AdminPurchasedNumber> {
+  return apiClient<AdminPurchasedNumber>(`/admin/numbers/${numberId}`);
+}
+
+export async function refreshAdminNumberStatus(
+  numberId: string
+): Promise<NumberActionResult> {
+  return apiClient<NumberActionResult>(
+    `/admin/numbers/${numberId}/refresh-status`,
+    { method: "POST" }
+  );
+}
+
+export async function cancelAdminNumber(numberId: string): Promise<NumberActionResult> {
+  return apiClient<NumberActionResult>(`/admin/numbers/${numberId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function retryAdminNumber(numberId: string): Promise<NumberActionResult> {
+  return apiClient<NumberActionResult>(`/admin/numbers/${numberId}/retry`, {
+    method: "POST",
+  });
 }
 
 export interface UpdateAdminNumberPayload {

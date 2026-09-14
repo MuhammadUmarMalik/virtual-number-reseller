@@ -23,6 +23,9 @@ const STATUS_VARIANTS: Record<string, BadgeVariant> = {
   DISABLED: "danger",
   REFUNDED: "info",
   WAITING: "info",
+  AVAILABLE: "success",
+  RESERVED: "info",
+  SOLD: "neutral",
 };
 
 export function statusVariant(status: string): BadgeVariant {

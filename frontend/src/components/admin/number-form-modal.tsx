@@ -21,7 +21,7 @@ import {
 
 const numberSchema = z.object({
   phoneNumber: z.string().trim().min(5, "Phone number is required"),
-  status: z.enum(["WAITING", "ACTIVE", "RECEIVED", "EXPIRED", "REFUNDED", "DISABLED"]),
+  status: z.enum(["WAITING", "ACTIVE", "RECEIVED", "EXPIRED", "REFUNDED", "DISABLED", "CANCELLED"]),
   expiresAt: z.string(),
   vendorOrderId: z.string().trim().optional(),
   vendorOperator: z.string().trim().optional(),
@@ -116,6 +116,7 @@ export function NumberFormModal({ number, onClose, onSuccess }: NumberFormModalP
             <option value="RECEIVED">Received</option>
             <option value="EXPIRED">Expired</option>
             <option value="REFUNDED">Refunded</option>
+            <option value="CANCELLED">Cancelled</option>
             <option value="DISABLED">Disabled</option>
           </Select>
         </div>
