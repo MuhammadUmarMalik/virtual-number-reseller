@@ -29,7 +29,7 @@ export const updateUserProfileSchema = z.object({
 
 export const updateNumberSchema = z.object({
   phoneNumber: z.string().trim().min(5, "Phone number is required").optional(),
-  status: z.enum(["WAITING", "ACTIVE", "RECEIVED", "EXPIRED", "REFUNDED", "DISABLED"]).optional(),
+  status: z.enum(["WAITING", "ACTIVE", "RECEIVED", "EXPIRED", "REFUNDED", "DISABLED", "CANCELLED"]).optional(),
   expiresAt: z
     .string()
     .trim()

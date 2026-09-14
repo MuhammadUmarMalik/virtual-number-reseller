@@ -8,9 +8,11 @@ import { sessionRepository } from "../repositories/session.repository.js";
 import { topupRepository } from "../repositories/topup.repository.js";
 import { refundRepository } from "../repositories/refund.repository.js";
 import { productRepository } from "../repositories/product.repository.js";
+import { productNumberRepository } from "../repositories/product-number.repository.js";
 import { createAuditLog, createNotification } from "./audit.service.js";
 import { creditWallet, debitWallet } from "./wallet-ops.js";
 import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.js";
+import { smsbowerActivationService } from "./smsbower-activation.service.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import { settingsService } from "./settings.service.js";
@@ -354,6 +356,10 @@ export const adminService = {
     if (!order) {
       throw new AppError("Order not found", 404);
     }
+    if (order.user) {
+      const { passwordHash: _passwordHash, ...safe } = order.user;
+      return { ...order, user: safe };
+    }
     return order;
   },
 
@@ -423,11 +429,19 @@ export const adminService = {
     await topupRepository.deletePaymentAccount(accountId);
   },
 
-  async listProducts(params: { page: number; limit: number; search?: string; status?: string }) {
+  async listProducts(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    country?: string;
+    service?: string;
+    numberType?: string;
+  }) {
     const { page, limit } = params;
     const [total, items] = await Promise.all([
-      productRepository.count(params as never),
-      productRepository.list(params as never),
+      productRepository.count(params),
+      productRepository.list(params),
     ]);
 
     return buildPagination(
@@ -446,6 +460,23 @@ export const adminService = {
       total,
       { page, limit }
     );
+  },
+
+  async listProductNumbers(
+    productId: string,
+    params: { page: number; limit: number; search?: string; status?: string }
+  ) {
+    const product = await productRepository.findById(productId);
+    if (!product) {
+      throw new AppError("Product not found", 404);
+    }
+    const { page, limit } = params;
+    const [total, items] = await Promise.all([
+      productNumberRepository.countByProduct(productId, params),
+      productNumberRepository.listByProduct(productId, params),
+    ]);
+
+    return buildPagination(items, total, { page, limit });
   },
 
   async syncProductStock(productId: string, adminId: string) {
@@ -524,7 +555,12 @@ export const adminService = {
     };
   },
 
-  async listNumbers(params: { page: number; limit: number; search?: string; status?: string }) {
+  async listNumbers(params: {
+    page: number; limit: number;
+    search?: string; status?: string; country?: string; service?: string;
+    activationStatus?: string; productId?: string;
+    dateFrom?: string; dateTo?: string;
+  }) {
     const { page, limit } = params;
     const [total, items] = await Promise.all([
       numberRepository.countAll(params),
@@ -540,6 +576,42 @@ export const adminService = {
       throw new AppError("Number not found", 404);
     }
     return serializeAdminNumber(number);
+  },
+
+  async refreshNumberStatus(numberId: string, adminId: string) {
+    const result = await smsbowerActivationService.refreshStatus(numberId);
+    await createAuditLog(prisma, {
+      adminId,
+      action: "NUMBER_REFRESH_STATUS",
+      entityType: "PurchasedNumber",
+      entityId: numberId,
+      newValue: result,
+    });
+    return result;
+  },
+
+  async cancelNumber(numberId: string, adminId: string) {
+    const result = await smsbowerActivationService.cancelActivation(numberId);
+    await createAuditLog(prisma, {
+      adminId,
+      action: "NUMBER_CANCEL_ACTIVATION",
+      entityType: "PurchasedNumber",
+      entityId: numberId,
+      newValue: result,
+    });
+    return result;
+  },
+
+  async retryNumber(numberId: string, adminId: string) {
+    const result = await smsbowerActivationService.retryActivation(numberId);
+    await createAuditLog(prisma, {
+      adminId,
+      action: "NUMBER_RETRY_ACTIVATION",
+      entityType: "PurchasedNumber",
+      entityId: numberId,
+      newValue: result,
+    });
+    return result;
   },
 
   async updateNumber(

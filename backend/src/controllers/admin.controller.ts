@@ -70,6 +70,12 @@ export const adminController = {
       ...parsePagination(req.query),
       search: toSingle(req.query.search),
       status: toSingle(req.query.status),
+      country: toSingle(req.query.country),
+      service: toSingle(req.query.service),
+      activationStatus: toSingle(req.query.activationStatus),
+      productId: toSingle(req.query.product),
+      dateFrom: toSingle(req.query.dateFrom),
+      dateTo: toSingle(req.query.dateTo),
     });
     res.json(successResponse("Numbers retrieved", data));
   }),
@@ -91,6 +97,30 @@ export const adminController = {
   deleteNumber: asyncHandler(async (req: Request, res: Response) => {
     await adminService.deleteNumber(paramString(req.params.numberId), req.user!.id);
     res.json(successResponse("Number deleted"));
+  }),
+
+  refreshNumberStatus: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.refreshNumberStatus(
+      paramString(req.params.numberId),
+      req.user!.id
+    );
+    res.json(successResponse("Number status refreshed", data));
+  }),
+
+  cancelNumber: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.cancelNumber(
+      paramString(req.params.numberId),
+      req.user!.id
+    );
+    res.json(successResponse("Number cancelled", data));
+  }),
+
+  retryNumber: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.retryNumber(
+      paramString(req.params.numberId),
+      req.user!.id
+    );
+    res.json(successResponse("Number retry requested", data));
   }),
 
   creditUserWallet: asyncHandler(async (req: Request, res: Response) => {
@@ -159,9 +189,24 @@ export const adminController = {
     const data = await adminService.listProducts({
       ...parsePagination(req.query),
       search: toSingle(req.query.search),
-      status: toSingle(req.query.status),
+      status: toSingle(req.query.status) ?? "ALL",
+      country: toSingle(req.query.country),
+      service: toSingle(req.query.service),
+      numberType: toSingle(req.query.numberType),
     });
     res.json(successResponse("Products retrieved", data));
+  }),
+
+  listProductNumbers: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.listProductNumbers(
+      paramString(req.params.productId),
+      {
+        ...parsePagination(req.query),
+        search: toSingle(req.query.search),
+        status: toSingle(req.query.status),
+      }
+    );
+    res.json(successResponse("Product numbers retrieved", data));
   }),
 
   syncProductStock: asyncHandler(async (req: Request, res: Response) => {

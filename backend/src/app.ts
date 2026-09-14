@@ -6,6 +6,7 @@ import { env } from "./config/env.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import { notFoundMiddleware } from "./middlewares/not-found.middleware.js";
 import routes from "./routes/index.js";
+import { smsbowerWebhookRoutes } from "./routes/smsbower-webhook.routes.js";
 
 export function createApp() {
   const app = express();
@@ -28,6 +29,7 @@ export function createApp() {
     res.json({ status: "ok" });
   });
 
+  app.use("/api/v1/webhooks", smsbowerWebhookRoutes);
   app.use("/api/v1", routes);
 
   app.use(notFoundMiddleware);

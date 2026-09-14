@@ -2,9 +2,13 @@ import { env } from "../../../config/env.js";
 import { AppError } from "../../../utils/app-error.js";
 import {
   SMSBOWER_ERRORS,
+  SMSBOWER_STATUSES,
+  type SmsBowerActivation,
   type SmsBowerCountryResponse,
   type SmsBowerPricesV3Response,
   type SmsBowerServiceResponse,
+  type SmsBowerSetStatusResult,
+  type SmsBowerStatus,
   type SmsBowerTopCountriesResponse,
 } from "./smsbower.types.js";
 
@@ -124,6 +128,79 @@ function ensureNoError(text: string): string {
   return text;
 }
 
+export function parseActivation(text: string): SmsBowerActivation {
+  const cleaned = text.replace(/\s+/g, "");
+  const match = cleaned.match(/^ACCESS_ACTIVATION:(\d+):(.+)$/);
+  if (!match) {
+    throw new AppError(
+      `SMSBower: unexpected getNumber response "${truncateText(text)}"`,
+      502
+    );
+  }
+  return { activationId: match[1]!, phoneNumber: match[2]!.trim() };
+}
+
+/** Maps a raw getStatus response line into a typed status. */
+export function parseActivationStatus(text: string): SmsBowerStatus {
+  const trimmed = text.trim();
+
+  if (trimmed.startsWith(SMSBOWER_STATUSES.OK)) {
+    const code = trimmed.slice(SMSBOWER_STATUSES.OK.length + 1).trim();
+    return { status: SMSBOWER_STATUSES.OK, code: code || null, message: null };
+  }
+  if (trimmed === SMSBOWER_STATUSES.WAIT_CODE) {
+    return { status: SMSBOWER_STATUSES.WAIT_CODE, code: null, message: null };
+  }
+  if (trimmed === SMSBOWER_STATUSES.WAIT_RETRY) {
+    return { status: SMSBOWER_STATUSES.WAIT_RETRY, code: null, message: null };
+  }
+  if (trimmed === SMSBOWER_STATUSES.CANCEL) {
+    return { status: SMSBOWER_STATUSES.CANCEL, code: null, message: null };
+  }
+  if (trimmed === SMSBOWER_STATUSES.WAIT_RESEND) {
+    return { status: SMSBOWER_STATUSES.WAIT_RESEND, code: null, message: null };
+  }
+  if (trimmed.startsWith("STATUS_")) {
+    const separator = trimmed.indexOf(":");
+    return {
+      status: "UNKNOWN",
+      code: null,
+      message: separator === -1 ? trimmed : trimmed.slice(separator + 1).trim(),
+    };
+  }
+  parseError(text);
+  throw new AppError(`SMSBower: unexpected getStatus response "${truncateText(text)}"`, 502);
+}
+
+/** Parses the setStatus response into a typed result. */
+export function parseSetStatusResponse(text: string, statusCode: number): SmsBowerSetStatusResult {
+  const trimmed = text.trim();
+
+  if (trimmed.startsWith("ACCESS_CANCEL")) {
+    return { code: "CANCEL", sms: null };
+  }
+  if (trimmed.startsWith("ACCESS_RETRY_GET")) {
+    return { code: "RETRY_GET", sms: null };
+  }
+  if (trimmed.startsWith("ACCESS_READY")) {
+    return { code: "READY", sms: null };
+  }
+  if (trimmed.startsWith("ACCESS_ACTIVATION")) {
+    const sms = trimmed.slice("ACCESS_ACTIVATION".length).replace(/^:/, "").trim();
+    return { code: "ACTIVATION", sms: sms || null };
+  }
+  if (trimmed.startsWith("ACCESS_FINISH")) {
+    const sms = trimmed.slice("ACCESS_FINISH".length).replace(/^:/, "").trim();
+    return { code: "FINISH", sms: sms || null };
+  }
+  if (statusCode === 8 && trimmed) {
+    // Finish may return the code with no prefix on some builds.
+    return { code: "FINISH", sms: trimmed };
+  }
+  parseError(text);
+  throw new AppError(`SMSBower: unexpected setStatus response "${truncateText(text)}"`, 502);
+}
+
 export const smsbowerClient = {
   async getBalance(): Promise<string> {
     const text = ensureNoError(await request(BASE_URL, { action: "getBalance" }));
@@ -207,6 +284,65 @@ export const smsbowerClient = {
       throw new AppError(`SMSBower: invalid getPricesV3 response: ${text}`, 502);
     }
   },
+
+  /** Requests a new activation: returns the activation id and phone number. */
+  async getNumber(params: {
+    service: string;
+    country?: string;
+    operator?: string;
+    maxPrice?: number;
+  }): Promise<SmsBowerActivation> {
+    const text = ensureNoError(
+      await request(BASE_URL, {
+        action: "getNumber",
+        service: params.service,
+        country: params.country,
+        operator: params.operator,
+        maxPrice: params.maxPrice,
+      })
+    );
+    return parseActivation(text);
+  },
+
+  /** Requests a new activation without country filtering (V2). */
+  async getNumberV2(params: {
+    service: string;
+    operator?: string;
+    maxPrice?: number;
+  }): Promise<SmsBowerActivation> {
+    const text = ensureNoError(
+      await request(BASE_URL, {
+        action: "getNumberV2",
+        service: params.service,
+        operator: params.operator,
+        maxPrice: params.maxPrice,
+      })
+    );
+    return parseActivation(text);
+  },
+
+  /** Queries the current activation status. */
+  async getStatus(activationId: string): Promise<SmsBowerStatus> {
+    const text = ensureNoError(
+      await request(BASE_URL, { action: "getStatus", id: activationId })
+    );
+    return parseActivationStatus(text);
+  },
+
+  /** Changes the activation status (cancel / request another code / finish). */
+  async setStatus(
+    activationId: string,
+    statusCode: number
+  ): Promise<SmsBowerSetStatusResult> {
+    const text = ensureNoError(
+      await request(BASE_URL, {
+        action: "setStatus",
+        id: activationId,
+        status: statusCode,
+      })
+    );
+    return parseSetStatusResponse(text, statusCode);
+  },
 };
 
 function readCountryFields(
@@ -234,6 +370,16 @@ export function normalizeCountries(parsed: unknown): SmsBowerCountryResponse[] {
   if (!parsed || typeof parsed !== "object") return [];
 
   const result: SmsBowerCountryResponse[] = [];
+  const seenIds = new Set<number>();
+
+  const pushCountry = (
+    id: number,
+    fields: Pick<SmsBowerCountryResponse, "rus" | "eng" | "chn">
+  ) => {
+    if (seenIds.has(id)) return;
+    seenIds.add(id);
+    result.push({ id, ...fields });
+  };
 
   if (Array.isArray(parsed)) {
     for (const entry of parsed) {
@@ -242,7 +388,7 @@ export function normalizeCountries(parsed: unknown): SmsBowerCountryResponse[] {
       const id = readCountryId(record);
       const fields = readCountryFields(record);
       if (Number.isFinite(id) && fields) {
-        result.push({ id, ...fields });
+        pushCountry(id, fields);
       }
     }
     return result;
@@ -252,7 +398,7 @@ export function normalizeCountries(parsed: unknown): SmsBowerCountryResponse[] {
     const id = Number(key);
     if (typeof value === "string") {
       if (Number.isFinite(id)) {
-        result.push({ id, rus: value, eng: value, chn: value });
+        pushCountry(id, { rus: value, eng: value, chn: value });
       }
       continue;
     }
@@ -261,7 +407,7 @@ export function normalizeCountries(parsed: unknown): SmsBowerCountryResponse[] {
     }
     const fields = readCountryFields(value as Record<string, unknown>);
     if (Number.isFinite(id) && fields) {
-      result.push({ id, ...fields });
+      pushCountry(id, fields);
     }
   }
   return result;

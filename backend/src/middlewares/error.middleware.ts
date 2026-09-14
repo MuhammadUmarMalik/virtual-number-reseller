@@ -1,11 +1,21 @@
 import type { ErrorRequestHandler } from "express";
 import { Prisma } from "@prisma/client";
+import { MulterError } from "multer";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { errorResponse } from "../utils/api-response.js";
 import { AppError } from "../utils/app-error.js";
 
 export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
+  if (err instanceof MulterError) {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Uploaded file is too large. Maximum size is 5MB."
+        : "File upload failed";
+    res.status(400).json(errorResponse(message));
+    return;
+  }
+
   if (err instanceof AppError) {
     res.status(err.statusCode).json(errorResponse(err.message, err.errors));
     return;
