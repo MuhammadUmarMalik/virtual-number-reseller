@@ -23,12 +23,17 @@ export function AdminShell({ items, title, children }: AdminShellProps) {
   const setSidebarOpen = useAppStore((state) => state.setSidebarOpen);
 
   useEffect(() => {
-    if (!isLoading && user && user.role !== "ADMIN") {
+    if (isLoading) return;
+    if (!user) {
+      router.replace("/sign-in");
+      return;
+    }
+    if (user.role !== "ADMIN") {
       router.replace("/dashboard");
     }
   }, [isLoading, router, user]);
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -36,7 +41,7 @@ export function AdminShell({ items, title, children }: AdminShellProps) {
     );
   }
 
-  if (!user || user.role !== "ADMIN") {
+  if (user.role !== "ADMIN") {
     return null;
   }
 
