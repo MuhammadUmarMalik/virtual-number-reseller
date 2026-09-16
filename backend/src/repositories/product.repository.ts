@@ -50,30 +50,6 @@ export const productRepository = {
   delete(id: string) {
     return prisma.product.delete({ where: { id } });
   },
-
-  findStockSyncable() {
-    return prisma.product.findMany({
-      where: { status: "ACTIVE" },
-      select: {
-        id: true,
-        countryCode: true,
-        vendorCountryId: true,
-        vendorProviderId: true,
-        needsSync: true,
-        vendorId: true,
-        vip: true,
-        vendor: true,
-        service: true,
-      },
-    });
-  },
-
-  updateStock(id: string, availableStock: number) {
-    return prisma.product.update({
-      where: { id },
-      data: { availableStock },
-    });
-  },
 };
 
 function buildWhere(params: ProductListParams): Prisma.ProductWhereInput {

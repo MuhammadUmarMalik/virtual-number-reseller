@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Activity, RefreshCw, RotateCw, Undo2, XCircle } from "lucide-react";
 
-import { ActivationCard } from "@/components/numbers/activation-card";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { ErrorState } from "@/components/shared/error-state";

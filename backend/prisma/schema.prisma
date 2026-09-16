@@ -341,8 +341,6 @@ model Order {
 
   @@index([userId])
   @@index([status])
-  @@index([vendor])
-  @@index([vendorActivationId])
   @@index([createdAt])
   @@index([vendor])
   @@index([vendorActivationId])
@@ -414,8 +412,6 @@ model PurchasedNumber {
   @@index([orderId])
   @@index([orderItemId])
   @@index([productId])
-  @@index([vendor])
-  @@index([vendorActivationId])
   @@index([status])
   @@index([vendor])
   @@index([vendorActivationId])

@@ -1,10 +1,8 @@
 import type { AuthUser } from "@/types/auth.types";
-import type { PurchasedNumber, PurchasedNumberStatus } from "@/types/number.types";
+import type { PurchasedNumber } from "@/types/number.types";
 
 export type ProductStatus = "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 export type ProductSource = "VENDOR" | "IMPORTED";
-
-export type Vendor = "SMSBOWER";
 
 export interface Product {
   id: string;
@@ -20,7 +18,6 @@ export interface Product {
   service: string;
   numberType: string;
   description?: string | null;
-  vendorCost?: number | string | null;
   sellingPrice: string;
   vendorCost?: string | null;
   marginMultiplier?: string | null;
@@ -111,30 +108,6 @@ export interface Order {
 export interface CreateOrderPayload {
   productId: string;
   quantity: number;
-  idempotencyKey?: string;
-}
-
-export interface OrderStatusNumber {
-  id: string;
-  phoneNumber: string;
-  status: PurchasedNumberStatus;
-  otpCount: number;
-  expiresAt: string | null;
-  otpCode: string | null;
-  otps: Array<{
-    id: string;
-    otpCode: string | null;
-    rawMessage: string;
-    receivedAt: string;
-  }>;
-}
-
-export interface OrderStatusResponse {
-  orderId: string;
-  orderCode: string;
-  status: OrderStatus;
-  completedAt: string | null;
-  numbers: OrderStatusNumber[];
 }
 
 export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";

@@ -1,8 +1,6 @@
 import { numberRepository } from "../repositories/number.repository.js";
 import { smsbowerActivationService } from "../services/smsbower-activation.service.js";
 import { logger } from "../config/logger.js";
-import { realtime } from "../realtime/events.js";
-import { resolveVendor } from "../integrations/vendor/vendor.factory.js";
 
 export async function runExpireNumbers() {
   const now = new Date();

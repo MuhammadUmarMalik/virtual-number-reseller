@@ -268,21 +268,18 @@ Stores number products sold to users.
 products
 --------
 id
-vendor_id           -- Durian project ID (PID) this product buys from
+vendor_id
 name
 slug
 country
 country_code
-service             -- platform (e.g. Facebook)
+service
 number_type
 description
 vendor_cost
 selling_price
 refund_window_hours
 available_stock
-serial_mode         -- SINGLE (serial=2) | MULTIPLE (serial=1) per vendor project
-secret_key          -- required only for select vendor projects (never sent to users)
-vip                 -- optional VIP exclusive channel key
 status
 created_at
 updated_at
@@ -420,18 +417,12 @@ encrypted_token
 vendor_order_id
 status
 otp_count
-poll_attempts
 purchased_at
 expires_at
 last_checked_at
 created_at
 updated_at
 ```
-
-Rules:
-
-* `poll_attempts` counts `getMsg` polls for the number (incremented by the OTP polling job / manual check).
-* `last_checked_at` throttles polling to once per `OTP_POLLING_INTERVAL_MS` (default 15s); rows are also skipped once past `expires_at`.
 
 ### Number Status
 

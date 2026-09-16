@@ -2,17 +2,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../config/database.js";
 import { env } from "../config/env.js";
 import { orderRepository } from "../repositories/order.repository.js";
-import { numberRepository } from "../repositories/number.repository.js";
 import { productRepository } from "../repositories/product.repository.js";
 import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.js";
 import { SMSBOWER_SET_STATUS, type SmsBowerActivation } from "../integrations/vendor/smsbower/smsbower.types.js";
 import { createAuditLog, createNotification } from "./audit.service.js";
-import { syncNumberOtps } from "./number.service.js";
-import { logger } from "../config/logger.js";
 import { debitWallet } from "./wallet-ops.js";
 import { vendorService } from "./vendor.service.js";
-import { liveStockService } from "./live-stock.service.js";
-import { realtime } from "../realtime/events.js";
 import { AppError } from "../utils/app-error.js";
 import { generateCode } from "../utils/generate-code.js";
 import { buildPagination } from "../utils/pagination.js";
@@ -217,11 +212,8 @@ export const orderService = {
     if (product.status !== "ACTIVE") {
       throw new AppError("This product is not available", 400);
     }
-    if (product.needsSync) {
-      throw new AppError(
-        "This product is flagged for re-sync and cannot be purchased until an admin fixes its vendor country mapping.",
-        409
-      );
+    if (product.availableStock < input.quantity) {
+      throw new AppError("Insufficient stock", 400);
     }
 
     const quantity = input.quantity;
@@ -248,7 +240,7 @@ export const orderService = {
       attempts += 1;
     }
 
-    const numberLifetimeMs = env.numberLifetimeMinutes * 60 * 1000;
+    const serial = quantity > 1 ? 1 : 2;
 
     let vendorNumbers: Array<{ phoneNumber: string; serial: number }> = [];
     const smsbowerActivations: SmsBowerActivation[] = [];
@@ -290,7 +282,16 @@ export const orderService = {
       }
     }
 
-    const projectId = product.vendorId;
+    let result;
+    try {
+      result = await prisma.$transaction(async (tx) => {
+        await debitWallet(tx, {
+          userId,
+          amount: total,
+          type: "PURCHASE",
+          referenceType: "ORDER",
+          description: `Order ${orderCode}`,
+        });
 
         const order = await orderRepository.createWithItems(tx, {
           orderCode,
@@ -447,76 +448,7 @@ export const orderService = {
       throw error;
     }
 
-      await debitWallet(tx, {
-        userId,
-        amount: total,
-        type: "PURCHASE",
-        referenceType: "ORDER",
-        description: `Order ${orderCode}`,
-      });
-
-      const order = await orderRepository.createWithItems(tx, {
-        orderCode,
-        userId,
-        subtotal,
-        total,
-        status: "COMPLETED",
-        idempotencyKey,
-        vendor: "SMSBOWER",
-        vendorActivationId: activation.vendorActivationId,
-        items: [
-          {
-            productId: product.id,
-            quantity,
-            unitPrice: total.div(quantity),
-            totalPrice: total,
-            status: "COMPLETED",
-          },
-        ],
-      });
-
-      const purchasedNumber = await tx.purchasedNumber.create({
-        data: {
-          userId,
-          orderId: order.id,
-          orderItemId: order.items[0].id,
-          productId: product.id,
-          vendor: "SMSBOWER",
-          vendorId: projectId,
-          phoneNumber: activation.phoneNumber,
-          vendorActivationId: activation.vendorActivationId,
-          vendorCost: new Prisma.Decimal(activation.cost || "0"),
-          vendorOperator: activation.operator,
-          canGetAnotherSms: activation.canGetAnotherSms,
-          status: "ACTIVE",
-          expiresAt: new Date(Date.now() + numberLifetimeMs),
-        },
-      });
-
-      await createNotification(tx, {
-        userId,
-        title: "Order placed",
-        message: `Order ${orderCode} for ${product.name} (x${quantity}) is confirmed.`,
-        type: "ORDER",
-      });
-
-      await createAuditLog(tx, {
-        adminId: userId,
-        action: "ORDER_CREATE",
-        entityType: "Order",
-        entityId: order.id,
-        newValue: {
-          orderCode,
-          total: toString(total),
-          purchasedNumberCount: 1,
-          vendor: "SMSBOWER",
-        },
-      });
-
-      return { order, purchasedNumbers: [purchasedNumber] };
-    });
-
-    return result;
+    return serializeOrder(result.order);
   },
 
   async listOrders(userId: string, params: { page: number; limit: number; status?: string }) {
@@ -535,85 +467,6 @@ export const orderService = {
       throw new AppError("Order not found", 404);
     }
     return serializeOrder(order);
-  },
-
-  async getOrderStatus(userId: string, orderId: string) {
-    const order = await orderRepository.findById(orderId);
-    if (!order || order.userId !== userId) {
-      throw new AppError("Order not found", 404);
-    }
-
-    for (const number of order.numbers ?? []) {
-      if (number.expiresAt && number.expiresAt.getTime() <= Date.now()) {
-        continue;
-      }
-      if (!["WAITING", "ACTIVE", "RECEIVED"].includes(number.status)) {
-        continue;
-      }
-
-      const fresh = await numberRepository.findByIdForUser(number.id, userId);
-      if (!fresh) continue;
-
-      try {
-        await syncNumberOtps({
-          id: fresh.id,
-          userId: fresh.userId,
-          phoneNumber: fresh.phoneNumber,
-          vendorOrderId: fresh.vendorOrderId,
-          vendorActivationId: fresh.vendorActivationId,
-          vendor: fresh.vendor,
-          status: fresh.status,
-          otpCount: fresh.otpCount,
-          expiresAt: fresh.expiresAt,
-          lastCheckedAt: fresh.lastCheckedAt,
-          product: fresh.product
-            ? {
-                vendorId: fresh.product.vendorId,
-                service: fresh.product.service,
-                vendor: fresh.product.vendor,
-              }
-            : null,
-        });
-      } catch (error) {
-        // A transient vendor outage must not break the polling endpoint.
-        logger.warn(`OTP poll failed for number ${number.id}`, error);
-      }
-    }
-
-    const freshOrder = await orderRepository.findById(orderId);
-    if (!freshOrder) {
-      throw new AppError("Order not found", 404);
-    }
-
-    const numbers = await Promise.all(
-      (freshOrder.numbers ?? []).map(async (number) => {
-        const messages = await numberRepository.findOtpMessages(number.id);
-        return {
-          id: number.id,
-          phoneNumber: number.phoneNumber,
-          status: number.status,
-          otpCount: number.otpCount,
-          expiresAt: number.expiresAt ? number.expiresAt.toISOString() : null,
-          otpCode: messages[0]?.otpCode ?? null,
-          otps: messages.map((message) => ({
-            id: message.id,
-            otpCode: message.otpCode,
-            rawMessage: message.rawMessage,
-            receivedAt: message.receivedAt.toISOString(),
-          })),
-        };
-      })
-    );
-
-    return {
-      orderId: freshOrder.id,
-      orderCode: freshOrder.orderCode,
-      status: freshOrder.status,
-      completedAt: freshOrder.completedAt
-        ? freshOrder.completedAt.toISOString()
-        : null,
-      numbers,
-    };
   },
 
   async listAll(params: { page: number; limit: number; status?: string; userId?: string }) {

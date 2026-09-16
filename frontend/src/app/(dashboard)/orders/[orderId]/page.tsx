@@ -31,15 +31,14 @@ export default function OrderDetailPage() {
     return <LoadingState label="Loading order..." />;
   }
 
-  if (query.isError || !order) {
+  if (query.isError || !query.data) {
     return <ErrorState message="Unable to load this order." />;
   }
 
+  const order = query.data;
   const canRefund = ["ACTIVE", "WAITING_OTP", "OTP_RECEIVED", "COMPLETED"].includes(
     order.status
   );
-
-  const liveNumbers = statusQuery.data?.numbers ?? order.numbers;
 
   return (
     <div className="space-y-6">
@@ -122,13 +121,13 @@ export default function OrderDetailPage() {
       <section>
         <h2 className="mb-4 text-lg font-semibold text-foreground">Numbers</h2>
         <div className="rounded-xl border border-border bg-card p-5">
-          {!liveNumbers || liveNumbers.length === 0 ? (
+          {!order.numbers || order.numbers.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No numbers available for this order yet.
             </p>
           ) : (
             <ul className="space-y-3">
-              {liveNumbers.map((number) => (
+              {order.numbers.map((number) => (
                 <li
                   key={number.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
@@ -140,11 +139,6 @@ export default function OrderDetailPage() {
                     <StatusBadge status={number.status} />
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {"otpCode" in number && number.otpCode && (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-mono font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
-                        Code: {number.otpCode}
-                      </span>
-                    )}
                     <span>OTPs: {number.otpCount}</span>
                     <span>
                       Expires:{" "}

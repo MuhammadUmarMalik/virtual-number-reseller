@@ -36,7 +36,9 @@ export function TopupModal({ onClose }: TopupModalProps) {
   });
 
   const account =
-    accountsQuery.data?.find((acc) => acc.isActive) ??
+    accountsQuery.data?.find(
+      (acc) => acc.paymentMethod === TOPUP_ACCOUNT_METHOD
+    ) ??
     accountsQuery.data?.[0] ??
     null;
 

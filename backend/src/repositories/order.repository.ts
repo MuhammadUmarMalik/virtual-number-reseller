@@ -8,10 +8,6 @@ export const orderRepository = {
     return prisma.order.findUnique({ where: { orderCode } });
   },
 
-  findByIdempotencyKey(idempotencyKey: string) {
-    return prisma.order.findUnique({ where: { idempotencyKey } });
-  },
-
   findById(id: string, includeUser = false) {
     return prisma.order.findUnique({
       where: { id },
@@ -77,9 +73,6 @@ export const orderRepository = {
     subtotal: Prisma.Decimal;
     total: Prisma.Decimal;
     status: OrderStatus;
-    idempotencyKey?: string | null;
-    vendor?: string;
-    vendorActivationId?: string;
     items: Array<{
       productId: string;
       quantity: number;
@@ -95,9 +88,6 @@ export const orderRepository = {
         subtotal: data.subtotal,
         total: data.total,
         status: data.status,
-        idempotencyKey: data.idempotencyKey ?? null,
-        vendor: data.vendor as "SMSBOWER" | undefined,
-        vendorActivationId: data.vendorActivationId,
         completedAt: data.status === "COMPLETED" ? new Date() : null,
         items: {
           create: data.items.map((item) => ({

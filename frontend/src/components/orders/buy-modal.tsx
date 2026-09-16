@@ -1,11 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
 
-import { ActivationCard } from "@/components/numbers/activation-card";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Modal } from "@/components/ui/modal";
@@ -17,7 +16,6 @@ import {
   type CreateOrderFormValues,
 } from "@/schemas/order.schema";
 import type { ProductSummary } from "@/types/content.types";
-import type { PurchasedNumber } from "@/types/number.types";
 
 interface BuyModalProps {
   product: ProductSummary | null;
@@ -28,56 +26,43 @@ export function BuyModal({ product, onClose }: BuyModalProps) {
   const createOrder = useCreateOrder();
   const { formatPrice } = useCurrency();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [purchasedNumber, setPurchasedNumber] =
-    useState<PurchasedNumber | null>(null);
-  const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   const {
     register,
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
+    reset,
   } = useForm<CreateOrderFormValues>({
     resolver: zodResolver(createOrderSchema),
     defaultValues: { productId: product?.id ?? "", quantity: 1 },
   });
 
+  useEffect(() => {
+    if (product) {
+      reset({ productId: product.id, quantity: 1 });
+    }
+  }, [product, reset]);
+
   const quantity = useWatch({ control, name: "quantity" }) || 1;
-  const maxQuantity = product ? Math.min(product.availableStock, 10) : 1;
 
   if (!product) return null;
 
-  const showActivation =
-    purchasedNumber !== null && purchasedNumber.productId === product.id;
-
-  const handleClose = () => {
-    setPurchasedNumber(null);
-    onClose();
-  };
-
   const submitForm: SubmitHandler<CreateOrderFormValues> = async (values) => {
     setServerError(null);
-    if (values.quantity > product.availableStock) {
-      setServerError("Not enough stock for the selected quantity.");
-      return;
-    }
     try {
       const order = await createOrder.mutateAsync({
         productId: product.id,
         quantity: values.quantity,
-        idempotencyKey: idempotencyKeyRef.current,
       });
-      idempotencyKeyRef.current = crypto.randomUUID();
+      reset();
+      onClose();
       const number = order.numbers?.[0];
-      if (number) {
-        setPurchasedNumber(number);
-        toast.success(
-          `Number ${number.phoneNumber} purchased successfully`
-        );
-      } else {
-        handleClose();
-        toast.success("Order placed successfully");
-      }
+      toast.success(
+        number
+          ? `Number ${number.phoneNumber} purchased successfully`
+          : "Order placed successfully"
+      );
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -88,34 +73,11 @@ export function BuyModal({ product, onClose }: BuyModalProps) {
     }
   };
 
-  if (showActivation && purchasedNumber) {
-    return (
-      <Modal
-        title="Number ready"
-        onClose={handleClose}
-        maxWidth="lg"
-        className="sm:max-w-2xl"
-      >
-        <ActivationCard
-          number={purchasedNumber}
-          onClosed={handleClose}
-        />
-        <div className="mt-4 flex justify-end">
-          <Button type="button" variant="outline" onClick={handleClose}>
-            Close
-          </Button>
-        </div>
-      </Modal>
-    );
-  }
-
   return (
     <Modal title="Buy Number" onClose={onClose}>
       <p className="mb-4 text-sm text-muted-foreground">
         {product.name} — {formatPrice(product.sellingPrice, product.currency)} each
       </p>
-      {/* The ref is only read in the submit event handler, never during render. */}
-      {/* eslint-disable-next-line react-hooks/refs */}
       <form onSubmit={handleSubmit(submitForm)} className="space-y-4" noValidate>
         {serverError && (
           <div
@@ -131,7 +93,7 @@ export function BuyModal({ product, onClose }: BuyModalProps) {
           type="number"
           inputMode="numeric"
           min={1}
-          max={maxQuantity}
+          max={product.availableStock}
           disabled={isSubmitting}
           error={errors.quantity?.message}
           {...register("quantity", { valueAsNumber: true })}
