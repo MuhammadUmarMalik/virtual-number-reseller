@@ -78,7 +78,18 @@ async function tryRefreshToken(): Promise<boolean> {
   return refreshPromise;
 }
 
-function handleAuthFailure(): void {
+async function clearAuthCookies(): Promise<void> {
+  // Access/refresh tokens are HttpOnly cookies that only the server can
+  // clear. Logout works even with a missing or invalid refresh token: it
+  // just clears the cookies, which is what breaks a stale-token reload loop.
+  await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => undefined);
+}
+
+async function handleAuthFailure(): Promise<void> {
+  await clearAuthCookies();
   clearAuthStorage();
   useAuthStore.getState().clearAuth();
   if (typeof window !== "undefined") {
@@ -135,7 +146,7 @@ export async function apiClient<T>(
       return apiClient<T>(path, options, { retried: true });
     }
     if (!internal?.skipAuthRedirect) {
-      handleAuthFailure();
+      await handleAuthFailure();
     }
   }
 
