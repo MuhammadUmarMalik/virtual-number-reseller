@@ -18,8 +18,16 @@ export const productController = {
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {
-    await productService.remove(paramString(req.params.productId));
-    res.json(successResponse("Product deleted"));
+    const data = await productService.remove(
+      paramString(req.params.productId),
+      req.user!.id
+    );
+    res.json(
+      successResponse(
+        data.softDelete ? "Product deleted (history preserved)" : "Product deleted",
+        data
+      )
+    );
   }),
 
   list: asyncHandler(async (req: Request, res: Response) => {

@@ -617,7 +617,31 @@ Use audit logs for:
 
 ---
 
-## 21. Main Relationships
+## 21. Exchange Rate
+
+Stores currency exchange rates used to display prices in multiple currencies.
+
+```
+exchange_rates
+--------------
+id
+currency
+rate
+updated_at
+```
+
+**Rules:**
+
+* `rate` is relative to USD: `1 USD = rate * currency`.
+* Ledger money (wallet, wallet transactions, top-ups, order totals, refunds) is stored in **PKR**. Product prices are stored in their own `Product.currency` (USD by default for vendor-sourced products) and converted to PKR when an order is charged. All display conversions happen at runtime and are never persisted.
+* On purchase, the backend reads the selling price from the database, converts it to PKR using the latest stored rate (rounded to 2 decimals), and debits the wallet in PKR. If the required rate is missing the purchase fails with `503` rather than charging a wrong amount.
+* Rates are fetched from `https://open.er-api.com/v6/latest/USD` on a scheduled job (every 6–12 hours). On API failure the last known rates are kept and a warning is logged — display pricing never blocks.
+
+Top-up requests are stored and charged in PKR. `currency` and `display_amount` are optional audit fields recording the currency the user entered an amount in and the value as entered.
+
+---
+
+## 22. Main Relationships
 
 ```
 User
@@ -649,7 +673,7 @@ Purchased Number
 
 ---
 
-## 22. Important Database Rules
+## 23. Important Database Rules
 
 1. Use database transactions for wallet credits and debits.
 2. Do not allow negative wallet balances.

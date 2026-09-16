@@ -41,7 +41,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${sora.variable} ${instrumentSans.variable} ${jetBrainsMono.variable}`}
     >
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

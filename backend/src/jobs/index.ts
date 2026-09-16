@@ -3,6 +3,7 @@ import { logger } from "../config/logger.js";
 import { settingsService } from "../services/settings.service.js";
 import { runExpireNumbers } from "./expire-numbers.job.js";
 import { runOtpPolling } from "./otp-polling.job.js";
+import { runSyncExchangeRates } from "./sync-exchange-rates.job.js";
 import { runVendorSync } from "./vendor-sync.job.js";
 
 function schedule(name: string, intervalMs: number, task: () => Promise<void>) {
@@ -34,6 +35,13 @@ export async function startJobs() {
   schedule("otp-polling", pollingIntervalMs, runOtpPolling);
   schedule("expire-numbers", env.expireNumbersIntervalMs, runExpireNumbers);
   schedule("vendor-sync", env.vendorSyncIntervalMs, runVendorSync);
+  schedule(
+    "sync-exchange-rates",
+    env.exchangeRateSyncIntervalMs,
+    runSyncExchangeRates
+  );
+
+  void runSyncExchangeRates();
 
   logger.info("Background jobs started");
 }

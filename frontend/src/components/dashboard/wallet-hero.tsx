@@ -1,7 +1,9 @@
+"use client";
+
 import { ArrowUpRight, Wallet } from "lucide-react";
 import Link from "next/link";
 
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 
 interface WalletHeroProps {
   balance: string;
@@ -10,6 +12,7 @@ interface WalletHeroProps {
 
 export function WalletHero({ balance, userName }: WalletHeroProps) {
   const firstName = userName.split(" ")[0] || "there";
+  const { formatPrice } = useCurrency();
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground shadow-lg shadow-primary/10">
@@ -36,7 +39,7 @@ export function WalletHero({ balance, userName }: WalletHeroProps) {
             Wallet Balance
           </p>
           <p className="mt-1 text-4xl font-semibold tracking-tight sm:text-5xl">
-            {formatCurrency(balance)}
+            {formatPrice(balance)}
           </p>
         </div>
 

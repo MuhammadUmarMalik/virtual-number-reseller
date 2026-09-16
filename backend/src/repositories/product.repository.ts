@@ -35,6 +35,10 @@ export const productRepository = {
     return prisma.product.findUnique({ where: { slug } });
   },
 
+  findByName(name: string) {
+    return prisma.product.findUnique({ where: { name } });
+  },
+
   create(data: Prisma.ProductUncheckedCreateInput) {
     return prisma.product.create({ data });
   },
@@ -49,11 +53,12 @@ export const productRepository = {
 };
 
 function buildWhere(params: ProductListParams): Prisma.ProductWhereInput {
-  const where: Prisma.ProductWhereInput = {};
+  const where: Prisma.ProductWhereInput = { deletedAt: null };
 
-  if (params.status) {
+  if (params.status && params.status !== "ALL") {
     where.status = params.status as ProductStatus;
-  } else {
+  } else if (!params.status) {
+    // Public catalog and legacy callers expect only active products by default.
     where.status = "ACTIVE";
   }
 

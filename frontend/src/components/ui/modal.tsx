@@ -10,7 +10,7 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   className?: string;
-  maxWidth?: "md" | "lg";
+  maxWidth?: "md" | "lg" | "xl" | "2xl";
 }
 
 export function Modal({
@@ -47,7 +47,13 @@ export function Modal({
       <div
         className={cn(
           "relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-card text-card-foreground shadow-xl sm:rounded-2xl",
-          maxWidth === "md" ? "sm:max-w-md" : "sm:max-w-lg",
+          maxWidth === "md"
+            ? "sm:max-w-md"
+            : maxWidth === "lg"
+              ? "sm:max-w-lg"
+              : maxWidth === "xl"
+                ? "sm:max-w-xl"
+                : "sm:max-w-2xl",
           className
         )}
       >

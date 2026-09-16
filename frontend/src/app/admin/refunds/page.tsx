@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Receipt } from "lucide-react";
 
@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { RejectModal } from "@/components/admin/reject-modal";
 import { ApiError } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import {
   approveRefund,
   getAdminRefunds,
@@ -22,6 +22,7 @@ import {
 } from "@/services/admin.service";
 
 export default function AdminRefundsPage() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
@@ -30,11 +31,14 @@ export default function AdminRefundsPage() {
     queryFn: () => getAdminRefunds({ page, limit: 20 }),
   });
 
+  const { formatPrice } = useCurrency();
+
   const handleApprove = async (refundId: string) => {
     try {
       await approveRefund(refundId);
       toast.success("Refund approved and wallet credited");
       void query.refetch();
+      void queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : "Unable to approve refund"
@@ -96,7 +100,7 @@ export default function AdminRefundsPage() {
                       {refund.order?.orderCode ?? refund.orderId}
                     </td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      {formatCurrency(refund.amount)}
+                      {formatPrice(refund.amount)}
                     </td>
                     <td className="max-w-xs truncate px-4 py-3 text-muted-foreground">
                       {refund.reason}

@@ -3,6 +3,8 @@ import { prisma } from "../config/database.js";
 import { env } from "../config/env.js";
 import { orderRepository } from "../repositories/order.repository.js";
 import { productRepository } from "../repositories/product.repository.js";
+import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.js";
+import { SMSBOWER_SET_STATUS, type SmsBowerActivation } from "../integrations/vendor/smsbower/smsbower.types.js";
 import { createAuditLog, createNotification } from "./audit.service.js";
 import { debitWallet } from "./wallet-ops.js";
 import { vendorService } from "./vendor.service.js";
@@ -15,6 +17,50 @@ function toString(value: { toString(): string }): string {
   return value.toString();
 }
 
+// Ledger money (wallet, order totals, refunds) is kept in PKR, while product
+// prices are stored in their own `Product.currency` (USD for vendor-sourced
+// products). Convert the selling price into the ledger currency so the wallet
+// debit charges the same currency users top up in.
+async function priceToLedger(
+  amount: Prisma.Decimal | string | number,
+  fromCurrency?: string | null
+): Promise<Prisma.Decimal> {
+  const LEDGER_CURRENCY = "PKR";
+  const source = fromCurrency ?? "USD";
+  if (source === LEDGER_CURRENCY) {
+    return new Prisma.Decimal(amount.toString());
+  }
+
+  const pkr = await prisma.exchangeRate.findUnique({
+    where: { currency: LEDGER_CURRENCY },
+  });
+  if (!pkr || pkr.rate.lte(0)) {
+    throw new AppError(
+      "Exchange rates are unavailable — unable to price this product. Try again later.",
+      503
+    );
+  }
+
+  // ER-API rates are per 1 USD (rate["PKR"] ≈ 280), so convert via USD.
+  let amountUsd = new Prisma.Decimal(amount.toString());
+  if (source !== "USD") {
+    const sourceRate = await prisma.exchangeRate.findUnique({
+      where: { currency: source },
+    });
+    if (!sourceRate || sourceRate.rate.lte(0)) {
+      throw new AppError(
+        "Exchange rates are unavailable — unable to price this product. Try again later.",
+        503
+      );
+    }
+    amountUsd = amountUsd.div(sourceRate.rate);
+  }
+
+  return amountUsd
+    .mul(pkr.rate)
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
 interface SerializedOrderItem {
   id: string;
   orderId: string;
@@ -25,7 +71,13 @@ interface SerializedOrderItem {
   status: string;
   otpCount: number;
   createdAt: string;
-  product?: unknown;
+  product?: {
+    id: string;
+    name: string;
+    service?: string | null;
+    country?: string | null;
+    countryCode?: string | null;
+  } | null;
 }
 
 interface SerializedOrder {
@@ -40,8 +92,24 @@ interface SerializedOrder {
   createdAt: string;
   updatedAt: string;
   items?: SerializedOrderItem[];
-  numbers?: unknown[];
+  numbers?: SerializedOrderNumber[];
   user?: unknown;
+}
+
+interface SerializedOrderNumber {
+  id: string;
+  userId: string;
+  orderId: string;
+  orderItemId: string | null;
+  productId: string;
+  phoneNumber: string;
+  status: string;
+  otpCount: number;
+  purchasedAt: string;
+  expiresAt: string | null;
+  lastCheckedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 function serializeOrder(order: {
@@ -57,7 +125,13 @@ function serializeOrder(order: {
     status: string;
     otpCount: number;
     createdAt: Date;
-    product?: unknown;
+    product?: {
+      id: string;
+      name: string;
+      service?: string | null;
+      country?: string | null;
+      countryCode?: string | null;
+    } | null;
   }>;
   numbers?: Array<{
     id: string;
@@ -97,10 +171,27 @@ function serializeOrder(order: {
       status: item.status,
       otpCount: item.otpCount,
       createdAt: item.createdAt.toISOString(),
-      ...(item.product ? { product: item.product } : {}),
+      ...(item.product
+        ? {
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              service: item.product.service ?? null,
+              country: item.product.country ?? null,
+              countryCode: item.product.countryCode ?? null,
+            },
+          }
+        : {}),
     })),
     numbers: order.numbers?.map((number) => ({
-      ...number,
+      id: number.id,
+      userId: number.userId,
+      orderId: number.orderId,
+      orderItemId: number.orderItemId,
+      productId: number.productId,
+      phoneNumber: number.phoneNumber,
+      status: number.status,
+      otpCount: number.otpCount,
       purchasedAt: number.purchasedAt.toISOString(),
       expiresAt: number.expiresAt ? number.expiresAt.toISOString() : null,
       lastCheckedAt: number.lastCheckedAt
@@ -126,13 +217,20 @@ export const orderService = {
     }
 
     const quantity = input.quantity;
-    const unitPrice = new Prisma.Decimal(product.sellingPrice.toString());
+    const unitPrice = await priceToLedger(product.sellingPrice, product.currency);
     const total = unitPrice.mul(quantity);
     const subtotal = total;
 
-    const projectId = product.vendorId || env.vendorPid;
-    if (!projectId) {
-      throw new AppError("Vendor project is not configured for this product", 503);
+    const isImported = product.source === "IMPORTED";
+    const isSmsbowerActivation =
+      product.vendor === "SMSBOWER" && Boolean(product.vendorCountryId || product.vendorProviderId);
+
+    let projectId = "";
+    if (!isImported && !isSmsbowerActivation) {
+      projectId = product.vendorId || env.vendorPid;
+      if (!projectId) {
+        throw new AppError("Vendor project is not configured for this product", 503);
+      }
     }
 
     let orderCode = generateCode("ORD");
@@ -144,17 +242,44 @@ export const orderService = {
 
     const serial = quantity > 1 ? 1 : 2;
 
-    let vendorNumbers;
-    try {
-      vendorNumbers = await vendorService.purchaseNumbers({
-        projectId,
-        quantity,
-        serial,
-      });
-    } catch (error) {
-      throw error instanceof AppError
-        ? error
-        : new AppError("Unable to purchase a number right now", 503);
+    let vendorNumbers: Array<{ phoneNumber: string; serial: number }> = [];
+    const smsbowerActivations: SmsBowerActivation[] = [];
+    if (isSmsbowerActivation) {
+      try {
+        for (let i = 0; i < quantity; i += 1) {
+          smsbowerActivations.push(
+            await smsbowerClient.getNumber({
+              service: product.service,
+              country: product.vendorCountryId ?? product.countryCode,
+              operator: product.vendorProviderId ?? undefined,
+              maxPrice: Number(product.vendorCost),
+            })
+          );
+        }
+      } catch (error) {
+        await Promise.allSettled(
+          smsbowerActivations.map((activation) =>
+            smsbowerClient
+              .setStatus(activation.activationId, SMSBOWER_SET_STATUS.CANCEL)
+              .catch(() => undefined)
+          )
+        );
+        throw error instanceof AppError
+          ? error
+          : new AppError("Unable to purchase a number right now", 503);
+      }
+    } else if (!isImported) {
+      try {
+        vendorNumbers = await vendorService.purchaseNumbers({
+          projectId,
+          quantity,
+          serial,
+        });
+      } catch (error) {
+        throw error instanceof AppError
+          ? error
+          : new AppError("Unable to purchase a number right now", 503);
+      }
     }
 
     let result;
@@ -186,23 +311,90 @@ export const orderService = {
         });
 
         const purchasedNumbers: Array<{ id: string; phoneNumber: string }> = [];
-        for (const vendorNumber of vendorNumbers) {
-          const purchasedNumber = await tx.purchasedNumber.create({
-            data: {
-              userId,
-              orderId: order.id,
-              orderItemId: order.items[0].id,
-              productId: product.id,
-              vendorId: projectId,
-              phoneNumber: vendorNumber.phoneNumber,
-              vendorOrderId: String(vendorNumber.serial),
-              status: "ACTIVE",
-              expiresAt: new Date(
-                Date.now() + product.refundWindowHours * 60 * 60 * 1000
-              ),
-            },
+
+        if (isImported) {
+          // Claim available inventory rows atomically before creating purchased
+          // numbers so concurrent orders cannot sell the same number twice.
+          const claimed = await tx.productNumber.findMany({
+            where: { productId: product.id, status: "AVAILABLE" },
+            orderBy: { createdAt: "asc" },
+            take: quantity,
           });
-          purchasedNumbers.push(purchasedNumber);
+          if (claimed.length < quantity) {
+            throw new AppError("Insufficient stock", 400);
+          }
+          const claim = await tx.productNumber.updateMany({
+            where: { id: { in: claimed.map((item) => item.id) }, status: "AVAILABLE" },
+            data: { status: "SOLD" },
+          });
+          if (claim.count < quantity) {
+            throw new AppError("Insufficient stock", 400);
+          }
+
+          for (const inventory of claimed) {
+            const purchasedNumber = await tx.purchasedNumber.create({
+              data: {
+                userId,
+                orderId: order.id,
+                orderItemId: order.items[0].id,
+                productId: product.id,
+                productNumberId: inventory.id,
+                phoneNumber: inventory.number,
+                status: "ACTIVE",
+                expiresAt: new Date(
+                  Date.now() + product.refundWindowHours * 60 * 60 * 1000
+                ),
+              },
+            });
+            purchasedNumbers.push(purchasedNumber);
+          }
+        } else if (isSmsbowerActivation) {
+          const expiresAt = new Date(Date.now() + env.smsbowerActivationTimeoutMs);
+          for (const activation of smsbowerActivations) {
+            const purchasedNumber = await tx.purchasedNumber.create({
+              data: {
+                userId,
+                orderId: order.id,
+                orderItemId: order.items[0].id,
+                productId: product.id,
+                phoneNumber: activation.phoneNumber,
+                vendor: "SMSBOWER",
+                vendorActivationId: activation.activationId,
+                vendorCost: product.vendorCost,
+                vendorOperator: product.vendorProviderId,
+                country: product.country,
+                countryCode: product.countryCode,
+                service: product.service,
+                provider: product.vendorProviderId,
+                sellingPrice: product.sellingPrice,
+                currency: product.currency,
+                status: "ACTIVE",
+                activationStatus: "STATUS_WAIT_CODE",
+                activationStartedAt: new Date(),
+                expiresAt,
+              },
+            });
+            purchasedNumbers.push(purchasedNumber);
+          }
+        } else {
+          for (const vendorNumber of vendorNumbers) {
+            const purchasedNumber = await tx.purchasedNumber.create({
+              data: {
+                userId,
+                orderId: order.id,
+                orderItemId: order.items[0].id,
+                productId: product.id,
+                vendorId: projectId,
+                phoneNumber: vendorNumber.phoneNumber,
+                vendorOrderId: String(vendorNumber.serial),
+                status: "ACTIVE",
+                expiresAt: new Date(
+                  Date.now() + product.refundWindowHours * 60 * 60 * 1000
+                ),
+              },
+            });
+            purchasedNumbers.push(purchasedNumber);
+          }
         }
 
         await tx.product.update({
@@ -232,17 +424,27 @@ export const orderService = {
         return { order, purchasedNumbers };
       });
     } catch (error) {
-      await Promise.allSettled(
-        vendorNumbers.map((vendorNumber) =>
-          vendorService
-            .releaseNumber({
-              projectId,
-              phoneNumber: vendorNumber.phoneNumber,
-              serial: vendorNumber.serial,
-            })
-            .catch(() => undefined)
-        )
-      );
+      if (isSmsbowerActivation) {
+        await Promise.allSettled(
+          smsbowerActivations.map((activation) =>
+            smsbowerClient
+              .setStatus(activation.activationId, SMSBOWER_SET_STATUS.CANCEL)
+              .catch(() => undefined)
+          )
+        );
+      } else if (!isImported) {
+        await Promise.allSettled(
+          vendorNumbers.map((vendorNumber) =>
+            vendorService
+              .releaseNumber({
+                projectId,
+                phoneNumber: vendorNumber.phoneNumber,
+                serial: vendorNumber.serial,
+              })
+              .catch(() => undefined)
+          )
+        );
+      }
       throw error;
     }
 

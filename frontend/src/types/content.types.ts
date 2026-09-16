@@ -51,6 +51,7 @@ export interface ProductSummary {
   numberType: string;
   sellingPrice: string;
   availableStock: number;
+  currency?: string;
 }
 
 export interface RecentOrder {
@@ -68,5 +69,7 @@ export interface AdminDashboardData {
   pendingRefunds: number;
   totalDeposits: string;
   totalPurchases: string;
+  importedAvailableStock: number;
+  smsbowerAvailableStock: number;
   availableStock: number;
 }

@@ -9,13 +9,39 @@ import {
   clearAuthStorage,
   getAccessToken,
 } from "@/lib/auth-storage";
+import { getExchangeRates } from "@/services/currency.service";
 import { useAuthStore } from "@/store/auth.store";
+import { useCurrencyStore } from "@/store/currency.store";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
   const setAuth = useAuthStore((state) => state.setAuth);
   const setLoading = useAuthStore((state) => state.setLoading);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const setRates = useCurrencyStore((state) => state.setRates);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRates() {
+      try {
+        const data = await getExchangeRates();
+        if (!cancelled) {
+          // Rates are per-USD, so keep USD pinned at 1 even if a partial
+          // or empty sync is returned.
+          setRates({ USD: 1, ...data.rates }, data.updatedAt);
+        }
+      } catch {
+        // Keep whatever rates are already in the store; never block pricing.
+      }
+    }
+
+    void loadRates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setRates]);
 
   useEffect(() => {
     let cancelled = false;

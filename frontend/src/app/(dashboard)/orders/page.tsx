@@ -11,7 +11,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import { getOrders } from "@/services/order.service";
 
 export default function OrdersPage() {
@@ -21,6 +21,8 @@ export default function OrdersPage() {
     queryKey: ["orders", page],
     queryFn: () => getOrders({ page, limit: 20 }),
   });
+
+  const { formatPrice } = useCurrency();
 
   if (query.isLoading) {
     return <LoadingState label="Loading orders..." variant="table" rows={5} />;
@@ -78,7 +80,7 @@ export default function OrdersPage() {
                           "—"}
                       </td>
                       <td className="px-4 py-3 font-semibold text-foreground">
-                        {formatCurrency(order.total)}
+                        {formatPrice(order.total)}
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={order.status} />
@@ -114,7 +116,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="font-semibold text-foreground">
-                    {formatCurrency(order.total)}
+                    {formatPrice(order.total)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {new Date(order.createdAt).toLocaleDateString("en-PK")}

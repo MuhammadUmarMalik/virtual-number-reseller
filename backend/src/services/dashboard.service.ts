@@ -11,6 +11,7 @@ export interface DashboardProductSummary {
   service: string;
   numberType: string;
   sellingPrice: string;
+  currency: string;
   availableStock: number;
 }
 
@@ -63,6 +64,7 @@ export const dashboardService = {
         service: product.service,
         numberType: product.numberType,
         sellingPrice: toString(product.sellingPrice),
+        currency: product.currency,
         availableStock: product.availableStock,
       })),
       recentOrders: recentOrders.map((order) => ({

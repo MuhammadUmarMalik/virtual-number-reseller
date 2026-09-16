@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   checkOtp,
   getActiveNumbers,
+  getNumberOtp,
 } from "@/services/number.service";
 
 export function useActiveNumbers(params?: {
@@ -21,6 +22,18 @@ export function useCheckOtp() {
 
   return useMutation({
     mutationFn: checkOtp,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["numbers"] });
+      queryClient.invalidateQueries({ queryKey: ["otp-history"] });
+    },
+  });
+}
+
+export function useGetOtp() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: getNumberOtp,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["numbers"] });
       queryClient.invalidateQueries({ queryKey: ["otp-history"] });

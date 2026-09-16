@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { getProducts } from "@/services/product.service";
 import { getDashboard } from "@/services/dashboard.service";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import { useAuthStore } from "@/store/auth.store";
 import type { ProductSummary } from "@/types/content.types";
 
@@ -24,6 +24,7 @@ export default function DashboardPage() {
     null,
   );
   const user = useAuthStore((state) => state.user);
+  const { formatPrice } = useCurrency();
 
   const dashboardQuery = useQuery({
     queryKey: ["dashboard"],
@@ -163,7 +164,7 @@ export default function DashboardPage() {
                       {order.orderCode}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {formatCurrency(order.total)}
+                      {formatPrice(order.total)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />

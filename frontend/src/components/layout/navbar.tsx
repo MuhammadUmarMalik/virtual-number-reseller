@@ -3,11 +3,12 @@
 import { Menu, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CurrencySelector } from "@/components/layout/currency-selector";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useWallet } from "@/hooks/use-wallet";
+import { useCurrency } from "@/hooks/use-currency";
 import { useAppStore } from "@/store/app.store";
-import { formatCurrency } from "@/lib/format-currency";
 
 interface NavbarProps {
   onMenuClick?: () => void;
@@ -18,6 +19,7 @@ export function Navbar({ onMenuClick, showBalance = true }: NavbarProps) {
   const { wallet } = useWallet();
   const balance = wallet?.balance ?? null;
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
+  const { formatPrice } = useCurrency();
 
   const handleMenu = () => {
     if (onMenuClick) {
@@ -45,10 +47,11 @@ export function Navbar({ onMenuClick, showBalance = true }: NavbarProps) {
         {showBalance && (
           <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
             <Wallet className="h-4 w-4" />
-            {balance === null ? "—" : formatCurrency(balance)}
+            {balance === null ? "—" : formatPrice(balance)}
           </div>
         )}
         <NotificationBell />
+        <CurrencySelector />
         <ThemeToggle />
       </div>
     </header>

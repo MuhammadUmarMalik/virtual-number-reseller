@@ -1,6 +1,7 @@
 import { prisma } from "../config/database.js";
 import { refundRepository } from "../repositories/refund.repository.js";
 import { orderRepository } from "../repositories/order.repository.js";
+import { numberRepository } from "../repositories/number.repository.js";
 import { createAuditLog, createNotification } from "./audit.service.js";
 import { creditWallet } from "./wallet-ops.js";
 import { AppError } from "../utils/app-error.js";
@@ -58,6 +59,62 @@ export const refundService = {
     return serializeRefund(refund);
   },
 
+  /**
+   * Self-service refund for an imported number that never delivered an OTP.
+   * Only imported products qualify, the request is only possible inside the
+   * number's refund window, and a refund is refused once any OTP code arrived.
+   */
+  async createNumberRefund(userId: string, numberId: string) {
+    const number = await numberRepository.findByIdForUserWithEndpoint(numberId, userId);
+    if (!number) {
+      throw new AppError("Number not found", 404);
+    }
+
+    if (["REFUNDED", "DISABLED", "CANCELLED"].includes(number.status)) {
+      throw new AppError("This number cannot be refunded", 400);
+    }
+    if (number.expiresAt && number.expiresAt.getTime() < Date.now()) {
+      throw new AppError("This number has expired and can no longer be refunded", 400);
+    }
+    if (number.product?.source !== "IMPORTED") {
+      throw new AppError("Only imported numbers can be refunded when no OTP arrives", 400);
+    }
+
+    const receivedCodes = await numberRepository.hasOtpCode(number.id);
+    if (receivedCodes > 0) {
+      throw new AppError("This number already received an OTP and cannot be refunded", 400);
+    }
+
+    const existing = await refundRepository.findByOrderId(number.orderId, userId);
+    if (existing) {
+      throw new AppError(
+        `A refund request for this purchase is already ${existing.status.toLowerCase()}`,
+        409
+      );
+    }
+
+    const order = await orderRepository.findById(number.orderId);
+    if (!order || order.userId !== userId) {
+      throw new AppError("Order not found", 404);
+    }
+
+    const refund = await refundRepository.create({
+      userId,
+      orderId: order.id,
+      reason: `No OTP received for imported number ${number.phoneNumber}`,
+      amount: order.total,
+    });
+
+    await createNotification(prisma, {
+      userId,
+      title: "Refund requested",
+      message: `Your refund request for number ${number.phoneNumber} has been submitted.`,
+      type: "REFUND",
+    });
+
+    return serializeRefund(refund);
+  },
+
   async listRefunds(userId: string, params: { page: number; limit: number; status?: string }) {
     const { page, limit } = params;
     const [total, items] = await Promise.all([
@@ -96,14 +153,23 @@ export const refundService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.refundRequest.update({
-        where: { id: refundId },
+      // Guard the transition inside the transaction so two concurrent admins
+      // cannot both approve the same refund (which would double-credit).
+      const claims = await tx.refundRequest.updateMany({
+        where: { id: refundId, status: "PENDING" },
         data: {
           status: "COMPLETED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
           adminNotes: notes,
         },
+      });
+      if (claims.count !== 1) {
+        throw new AppError("Only pending refunds can be approved", 400);
+      }
+
+      const updated = await tx.refundRequest.findUnique({
+        where: { id: refundId },
       });
 
       await creditWallet(tx, {
@@ -118,6 +184,12 @@ export const refundService = {
 
       await tx.order.update({
         where: { id: refund.orderId },
+        data: { status: "REFUNDED" },
+      });
+
+      // Stop the numbers from being used or re-polled once their money is back.
+      await tx.purchasedNumber.updateMany({
+        where: { orderId: refund.orderId },
         data: { status: "REFUNDED" },
       });
 
@@ -136,7 +208,7 @@ export const refundService = {
         newValue: { status: "COMPLETED", amount: toString(refund.amount) },
       });
 
-      return updated;
+      return updated!;
     });
 
     return result;
@@ -152,14 +224,21 @@ export const refundService = {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.refundRequest.update({
-        where: { id: refundId },
+      const claims = await tx.refundRequest.updateMany({
+        where: { id: refundId, status: "PENDING" },
         data: {
           status: "REJECTED",
           reviewedBy: adminId,
           reviewedAt: new Date(),
           adminNotes: notes,
         },
+      });
+      if (claims.count !== 1) {
+        throw new AppError("Only pending refunds can be rejected", 400);
+      }
+
+      const updated = await tx.refundRequest.findUnique({
+        where: { id: refundId },
       });
 
       await createNotification(tx, {
@@ -177,7 +256,7 @@ export const refundService = {
         newValue: { status: "REJECTED", notes },
       });
 
-      return updated;
+      return updated!;
     });
 
     return result;

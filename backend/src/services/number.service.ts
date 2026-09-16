@@ -1,6 +1,7 @@
 import { env } from "../config/env.js";
 import { numberRepository } from "../repositories/number.repository.js";
 import { vendorService } from "./vendor.service.js";
+import { smsbowerActivationService } from "./smsbower-activation.service.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import { hashMessage } from "../utils/otp-parser.js";
@@ -8,14 +9,31 @@ import type { NumberStatus } from "@prisma/client";
 
 function serializeNumber(number: {
   product?: unknown;
+  order?: {
+    status: string;
+    refunds?: Array<{ status: string }>;
+  } | null;
   expiresAt?: Date | null;
   lastCheckedAt?: Date | null;
   purchasedAt: Date;
   createdAt: Date;
   updatedAt: Date;
 } & Record<string, unknown>) {
+  const {
+    vendorCost: _vendorCost,
+    vendorId: _vendorId,
+    vendorOrderId: _vendorOrderId,
+    vendorActivationId: _vendorActivationId,
+    vendorOperator: _vendorOperator,
+    currency: _currency,
+    vendor: _vendor,
+    order: _order,
+    ...safe
+  } = number;
   return {
-    ...number,
+    ...safe,
+    orderStatus: _order?.status ?? null,
+    refundStatus: _order?.refunds?.[0]?.status ?? null,
     purchasedAt: number.purchasedAt.toISOString(),
     createdAt: number.createdAt.toISOString(),
     updatedAt: number.updatedAt.toISOString(),
@@ -80,14 +98,36 @@ export async function syncNumberOtps(target: OtpSyncTarget) {
 }
 
 export const numberService = {
-  async listNumbers(userId: string, params: { page: number; limit: number; status?: string }) {
+  async listNumbers(userId: string, params: {
+    page: number; limit: number; status?: string; service?: string; country?: string; search?: string;
+  }) {
     const { page, limit } = params;
     const [total, items] = await Promise.all([
       numberRepository.countByUser(userId, params),
       numberRepository.listByUser(userId, params),
     ]);
-
     return buildPagination(items.map(serializeNumber), total, { page, limit });
+  },
+
+  async getDetail(userId: string, numberId: string) {
+    return smsbowerActivationService.getUserNumberDetail(numberId, userId);
+  },
+
+  async getStatus(userId: string, numberId: string) {
+    const purchased = await numberRepository.findByIdForUser(numberId, userId);
+    if (!purchased) throw new AppError("Number not found", 404);
+    if (purchased.vendorActivationId) {
+      return smsbowerActivationService.refreshStatus(numberId, userId);
+    }
+    return { status: purchased.status, activationStatus: purchased.activationStatus ?? null };
+  },
+
+  async cancel(userId: string, numberId: string) {
+    return smsbowerActivationService.cancelActivation(numberId, userId);
+  },
+
+  async retry(userId: string, numberId: string) {
+    return smsbowerActivationService.retryActivation(numberId, userId);
   },
 
   async checkOtp(userId: string, numberId: string) {
@@ -97,6 +137,10 @@ export const numberService = {
     }
     if (["EXPIRED", "REFUNDED", "DISABLED"].includes(purchased.status)) {
       throw new AppError("This number is no longer active", 400);
+    }
+
+    if (purchased.vendorActivationId) {
+      return smsbowerActivationService.getUserNumberOtp(numberId, userId);
     }
 
     const { newOtpCount, nextStatus } = await syncNumberOtps(purchased);

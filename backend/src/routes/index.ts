@@ -11,6 +11,7 @@ import { numberRoutes, otpRoutes } from "./number.routes.js";
 import refundRoutes from "./refund.routes.js";
 import notificationRoutes from "./notification.routes.js";
 import adminRoutes from "./admin.routes.js";
+import exchangeRateRoutes from "./exchange-rate.routes.js";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use("/otp-history", otpRoutes);
 router.use("/refunds", refundRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/admin", adminRoutes);
+router.use("/exchange-rates", exchangeRateRoutes);
 
 export default router;

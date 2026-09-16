@@ -5,12 +5,21 @@ import type {
   Announcement,
   AnnouncementType,
 } from "@/types/content.types";
-import type { Order, Product, RefundRequest } from "@/types/order.types";
+import type {
+  Order,
+  Product,
+  ProductNumber,
+  RefundRequest,
+} from "@/types/order.types";
 import type {
   PaymentAccount,
   PaymentMethod,
   TopupRequest,
 } from "@/types/wallet.types";
+import type {
+  NumberActionResult,
+  PurchasedNumberStatus,
+} from "@/types/number.types";
 
 export async function getAdminUsers(params?: {
   page?: number;
@@ -77,6 +86,29 @@ export async function debitUserWallet(
   });
 }
 
+export interface UpdateAdminUserPayload {
+  fullName?: string;
+  email?: string;
+  whatsappNumber?: string;
+  avatarUrl?: string;
+}
+
+export async function updateAdminUser(
+  userId: string,
+  payload: UpdateAdminUserPayload
+): Promise<AuthUser> {
+  return apiClient<AuthUser>(`/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminUser(userId: string): Promise<AuthUser> {
+  return apiClient<AuthUser>(`/admin/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getAdminTopups(params?: {
   page?: number;
   limit?: number;
@@ -131,6 +163,7 @@ export interface CreatePaymentAccountPayload {
   accountNumber: string;
   paymentMethod: PaymentMethod;
   instructions?: string;
+  isActive?: boolean;
 }
 
 export async function createPaymentAccount(
@@ -163,7 +196,35 @@ export async function getAdminProducts(params?: {
   limit?: number;
   search?: string;
   status?: string;
+  country?: string;
+  service?: string;
+  numberType?: string;
 }): Promise<PaginatedResponse<Product>> {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.country) query.set("country", params.country);
+  if (params?.service) query.set("service", params.service);
+  if (params?.numberType) query.set("numberType", params.numberType);
+
+  const qs = query.toString();
+  return apiClient<PaginatedResponse<Product>>(
+    `/admin/products${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getProductNumbers(
+  productId: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }
+): Promise<PaginatedResponse<ProductNumber>> {
   const query = new URLSearchParams();
 
   if (params?.page) query.set("page", String(params.page));
@@ -172,9 +233,110 @@ export async function getAdminProducts(params?: {
   if (params?.status) query.set("status", params.status);
 
   const qs = query.toString();
-  return apiClient<PaginatedResponse<Product>>(
-    `/admin/products${qs ? `?${qs}` : ""}`
+  return apiClient<PaginatedResponse<ProductNumber>>(
+    `/admin/products/${productId}/numbers${qs ? `?${qs}` : ""}`
   );
+}
+
+export interface UpdateProductNumberPayload {
+  number?: string;
+  providerEndpoint?: string;
+}
+
+export async function updateProductNumber(
+  productId: string,
+  numberId: string,
+  payload: UpdateProductNumberPayload
+): Promise<ProductNumber> {
+  return apiClient<ProductNumber>(
+    `/admin/products/${productId}/numbers/${numberId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteProductNumber(
+  productId: string,
+  numberId: string
+): Promise<void> {
+  return apiClient<void>(
+    `/admin/products/${productId}/numbers/${numberId}`,
+    { method: "DELETE" }
+  );
+}
+
+export interface ImportProductPayload {
+  name: string;
+  country: string;
+  countryCode: string;
+  service: string;
+  numberType: string;
+  description?: string;
+  sellingPrice: number;
+  currency?: string;
+  refundWindowHours?: number;
+  status?: "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+}
+
+export interface ImportPreviewResult {
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  duplicateCount: number;
+  validRows: Array<{ row: number; number: string }>;
+  invalidRows: Array<{ row: number; number: string; errors: string[] }>;
+}
+
+export interface ImportResult {
+  imported: number;
+  duplicates: number;
+  invalid: number;
+  total: number;
+  accepted: number;
+  product: Product;
+}
+
+function toImportFormData(
+  payload: ImportProductPayload,
+  file: File
+): FormData {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", payload.name);
+  form.append("country", payload.country);
+  form.append("countryCode", payload.countryCode);
+  form.append("service", payload.service);
+  form.append("numberType", payload.numberType);
+  form.append("sellingPrice", String(payload.sellingPrice));
+  if (payload.description) form.append("description", payload.description);
+  if (payload.currency) form.append("currency", payload.currency);
+  if (payload.refundWindowHours != null) {
+    form.append("refundWindowHours", String(payload.refundWindowHours));
+  }
+  if (payload.status) form.append("status", payload.status);
+  return form;
+}
+
+export async function importProductPreview(
+  payload: ImportProductPayload,
+  file: File
+): Promise<ImportPreviewResult> {
+  return apiClient<ImportPreviewResult>("/admin/products/import/preview", {
+    method: "POST",
+    body: toImportFormData(payload, file),
+  });
+}
+
+export async function importProduct(
+  payload: ImportProductPayload,
+  file: File
+): Promise<ImportResult> {
+  return apiClient<ImportResult>("/admin/products/import", {
+    method: "POST",
+    body: toImportFormData(payload, file),
+  });
 }
 
 export interface CreateProductPayload {
@@ -184,10 +346,19 @@ export interface CreateProductPayload {
   countryCode: string;
   service: string;
   numberType: string;
+  vendor?: "SMSBOWER";
   description?: string;
+  vendorId?: string;
+  vendorCountryId?: string;
+  vendorProviderId?: string;
   sellingPrice: number;
+  vendorCost?: number;
+  marginMultiplier?: number;
   refundWindowHours: number;
   availableStock: number;
+  serialMode?: "SINGLE" | "MULTIPLE";
+  secretKey?: string;
+  vip?: string;
   status?: "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
 }
 
@@ -210,8 +381,175 @@ export async function updateProduct(
   });
 }
 
-export async function deleteProduct(productId: string): Promise<void> {
-  return apiClient<void>(`/admin/products/${productId}`, {
+export interface VendorStockResponse {
+  vendor: string;
+  available: number;
+  notAvailable?: boolean;
+  vendorCost?: number | null;
+}
+
+export async function getVendorStock(params: {
+  vendor: string;
+  country?: string;
+  service?: string;
+}): Promise<VendorStockResponse> {
+  const query = new URLSearchParams();
+  query.set("vendor", params.vendor);
+  if (params.country) query.set("country", params.country);
+  if (params.service) query.set("service", params.service);
+
+  const qs = query.toString();
+  return apiClient<VendorStockResponse>(
+    `/admin/products/vendor-stock${qs ? `?${qs}` : ""}`
+  );
+}
+
+export type SyncProductStockResult = Product & {
+  syncedAt?: string;
+  notAvailable?: boolean;
+};
+
+export async function syncProductStock(
+  productId: string
+): Promise<SyncProductStockResult> {
+  return apiClient<SyncProductStockResult>(
+    `/admin/products/${productId}/sync-stock`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export async function deleteProduct(
+  productId: string
+): Promise<{ softDelete: boolean }> {
+  return apiClient<{ softDelete: boolean }>(`/admin/products/${productId}`, {
+    method: "DELETE",
+  });
+}
+
+export interface AdminPurchasedNumber {
+  id: string;
+  userId: string;
+  orderId: string;
+  productId: string;
+  phoneNumber: string;
+  vendorOrderId?: string | null;
+  vendor?: string | null;
+  vendorActivationId?: string | null;
+  vendorOperator?: string | null;
+  status: PurchasedNumberStatus;
+  otpCount: number;
+  vendorCost?: string | null;
+  sellingPrice?: string | null;
+  currency?: string | null;
+  country?: string | null;
+  service?: string | null;
+  provider?: string | null;
+  activationStatus?: string | null;
+  activationStartedAt?: string | null;
+  activationCompletedAt?: string | null;
+  cancelledAt?: string | null;
+  canGetAnotherSms?: boolean | null;
+  expiresAt?: string | null;
+  purchasedAt: string;
+  lastCheckedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+    whatsappNumber: string;
+  } | null;
+  product?: {
+    id: string;
+    name: string;
+    service: string;
+    country: string;
+  } | null;
+  otpMessages?: Array<{
+    id: string;
+    rawMessage: string;
+    otpCode: string | null;
+    receivedAt: string;
+  }> | null;
+}
+
+export async function getAdminNumbers(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  country?: string;
+  service?: string;
+  activationStatus?: string;
+}): Promise<PaginatedResponse<AdminPurchasedNumber>> {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.search) query.set("search", params.search);
+  if (params?.status) query.set("status", params.status);
+  if (params?.country) query.set("country", params.country);
+  if (params?.service) query.set("service", params.service);
+  if (params?.activationStatus) {
+    query.set("activationStatus", params.activationStatus);
+  }
+
+  const qs = query.toString();
+  return apiClient<PaginatedResponse<AdminPurchasedNumber>>(
+    `/admin/numbers${qs ? `?${qs}` : ""}`
+  );
+}
+
+export async function getAdminNumber(numberId: string): Promise<AdminPurchasedNumber> {
+  return apiClient<AdminPurchasedNumber>(`/admin/numbers/${numberId}`);
+}
+
+export async function refreshAdminNumberStatus(
+  numberId: string
+): Promise<NumberActionResult> {
+  return apiClient<NumberActionResult>(
+    `/admin/numbers/${numberId}/refresh-status`,
+    { method: "POST" }
+  );
+}
+
+export async function cancelAdminNumber(numberId: string): Promise<NumberActionResult> {
+  return apiClient<NumberActionResult>(`/admin/numbers/${numberId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export async function retryAdminNumber(numberId: string): Promise<NumberActionResult> {
+  return apiClient<NumberActionResult>(`/admin/numbers/${numberId}/retry`, {
+    method: "POST",
+  });
+}
+
+export interface UpdateAdminNumberPayload {
+  phoneNumber?: string;
+  status?: PurchasedNumberStatus;
+  expiresAt?: string | null;
+  vendorOrderId?: string | null;
+  vendorOperator?: string | null;
+  canGetAnotherSms?: boolean | null;
+  otpCount?: number;
+}
+
+export async function updateAdminNumber(
+  numberId: string,
+  payload: UpdateAdminNumberPayload
+): Promise<AdminPurchasedNumber> {
+  return apiClient<AdminPurchasedNumber>(`/admin/numbers/${numberId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteAdminNumber(numberId: string): Promise<void> {
+  return apiClient<void>(`/admin/numbers/${numberId}`, {
     method: "DELETE",
   });
 }
@@ -355,4 +693,78 @@ export async function updateAdminSettings(
     method: "PATCH",
     body: JSON.stringify(settings),
   });
+}
+
+export interface SmsBowerService {
+  code: string;
+  name: string;
+}
+
+export interface SmsBowerCountry {
+  id: number;
+  name: string;
+}
+
+export interface SmsBowerStockItem {
+  service: string;
+  serviceName: string;
+  country: string;
+  countryId: string;
+  count: number;
+  price: number;
+  providerId: number;
+}
+
+export interface SmsBowerTopCountry {
+  country: string;
+  price: number;
+  count: number;
+  partnerId: string;
+}
+
+export async function getSmsBowerServices(): Promise<SmsBowerService[]> {
+  const res = await apiClient<{ services: SmsBowerService[] }>(
+    "/admin/smsbower/services"
+  );
+  return res.services;
+}
+
+export async function getSmsBowerCountries(): Promise<SmsBowerCountry[]> {
+  const res = await apiClient<{ countries: SmsBowerCountry[] }>(
+    "/admin/smsbower/countries"
+  );
+  return res.countries;
+}
+
+export async function getSmsBowerTopCountries(
+  service: string
+): Promise<SmsBowerTopCountry[]> {
+  const res = await apiClient<{ topCountries: SmsBowerTopCountry[] }>(
+    `/admin/smsbower/top-countries?service=${encodeURIComponent(service)}`
+  );
+  return res.topCountries;
+}
+
+export async function getSmsBowerStock(params: {
+  service?: string;
+  country?: string;
+}): Promise<SmsBowerStockItem[]> {
+  const query = new URLSearchParams();
+  if (params.service) query.set("service", params.service);
+  if (params.country) query.set("country", params.country);
+
+  const qs = query.toString();
+  const res = await apiClient<{ stock: SmsBowerStockItem[] }>(
+    `/admin/smsbower/stock${qs ? `?${qs}` : ""}`
+  );
+  return res.stock;
+}
+
+export async function getSmsBowerBalance(): Promise<{
+  balance: string;
+  currency: string;
+}> {
+  return apiClient<{ balance: string; currency: string }>(
+    "/admin/smsbower/balance"
+  );
 }

@@ -70,6 +70,8 @@ export interface TopupRequest {
   paymentAccountId: string;
   paymentAccount?: PaymentAccount;
   amount: string;
+  currency: string;
+  displayAmount?: string | null;
   senderAccount: string;
   transactionId?: string | null;
   screenshotUrl?: string | null;
@@ -83,6 +85,8 @@ export interface TopupRequest {
 export interface CreateTopupPayload {
   paymentAccountId: string;
   amount: number;
+  currency?: string;
+  displayAmount?: number;
   senderAccount?: string;
   transactionId?: string;
   screenshotUrl?: string;

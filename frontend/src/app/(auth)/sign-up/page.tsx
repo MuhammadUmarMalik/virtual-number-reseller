@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { PasswordField } from "@/components/ui/password-field";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -111,18 +112,16 @@ export default function SignUpPage() {
           error={errors.whatsappNumber?.message}
           {...register("whatsappNumber")}
         />
-        <FormField
+        <PasswordField
           label="Password"
-          type="password"
           placeholder="At least 8 characters"
           autoComplete="new-password"
           disabled={isPending}
           error={errors.password?.message}
           {...register("password")}
         />
-        <FormField
+        <PasswordField
           label="Confirm Password"
-          type="password"
           placeholder="Re-enter your password"
           autoComplete="new-password"
           disabled={isPending}

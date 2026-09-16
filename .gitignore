@@ -43,3 +43,14 @@ claude.md
 
 # Playwright CLI artifacts
 .playwright-cli/
+
+#claude agents
+
+.claude/*
+
+#ignore md files 
+
+git.md
+prompts.md
+agents.md
+claude.md

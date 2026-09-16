@@ -30,4 +30,8 @@ export const sessionRepository = {
   deleteById(id: string) {
     return prisma.session.delete({ where: { id } });
   },
+
+  deleteManyByUser(userId: string) {
+    return prisma.session.deleteMany({ where: { userId } });
+  },
 };

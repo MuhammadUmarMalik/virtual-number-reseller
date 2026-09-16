@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { RejectModal } from "@/components/admin/reject-modal";
 import { ApiError } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 import {
   approveTopup,
   getAdminTopups,
@@ -29,6 +29,8 @@ export default function AdminTopupsPage() {
     queryKey: ["admin", "topups", page],
     queryFn: () => getAdminTopups({ page, limit: 20 }),
   });
+
+  const { formatPrice } = useCurrency();
 
   const handleApprove = async (topupId: string) => {
     try {
@@ -101,7 +103,15 @@ export default function AdminTopupsPage() {
                       {topup.requestCode}
                     </td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      {formatCurrency(topup.amount)}
+                      {formatPrice(topup.amount)}
+                      {topup.displayAmount &&
+                        topup.currency &&
+                        topup.currency !== "USD" && (
+                          <p className="text-xs font-normal text-muted-foreground">
+                            Original: {topup.currency}{" "}
+                            {Number(topup.displayAmount).toFixed(2)}
+                          </p>
+                        )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {topup.senderAccount}

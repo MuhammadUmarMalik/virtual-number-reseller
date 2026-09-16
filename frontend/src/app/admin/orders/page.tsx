@@ -10,16 +10,21 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatCurrency } from "@/lib/format-currency";
+import { OrderDetailModal } from "@/components/admin/order-detail-modal";
+import { useCurrency } from "@/hooks/use-currency";
 import { getAdminOrders } from "@/services/admin.service";
+import type { Order } from "@/types/order.types";
 
 export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
 
   const query = useQuery({
     queryKey: ["admin", "orders", page],
     queryFn: () => getAdminOrders({ page, limit: 20 }),
   });
+
+  const { formatPrice } = useCurrency();
 
   if (query.isLoading) {
     return <LoadingState label="Loading orders..." variant="table" rows={5} />;
@@ -54,16 +59,26 @@ export default function AdminOrdersPage() {
                 {data.items.map((order) => (
                   <tr
                     key={order.id}
-                    className="border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                    className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                    onClick={() => setDetailOrder(order)}
                   >
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {order.orderCode}
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailOrder(order);
+                        }}
+                        className="font-medium text-primary hover:text-primary/80"
+                      >
+                        {order.orderCode}
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {order.user?.fullName ?? order.userId}
                     </td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      {formatCurrency(order.total)}
+                      {formatPrice(order.total)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />
@@ -82,6 +97,10 @@ export default function AdminOrdersPage() {
             onPageChange={setPage}
           />
         </>
+      )}
+
+      {detailOrder && (
+        <OrderDetailModal order={detailOrder} onClose={() => setDetailOrder(null)} />
       )}
     </div>
   );

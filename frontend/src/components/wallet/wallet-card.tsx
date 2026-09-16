@@ -2,7 +2,7 @@ import { ArrowDownLeft, ArrowUpRight, RotateCcw, Wallet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/format-currency";
+import { useCurrency } from "@/hooks/use-currency";
 
 interface WalletCardProps {
   balance: string;
@@ -19,6 +19,7 @@ export function WalletCard({
   totalRefunds,
   onTopUp,
 }: WalletCardProps) {
+  const { formatPrice } = useCurrency();
   return (
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary via-primary to-primary/90 p-6 text-primary-foreground sm:p-8">
       <div
@@ -34,7 +35,7 @@ export function WalletCard({
             </span>
           </div>
           <p className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            {formatCurrency(balance)}
+            {formatPrice(balance)}
           </p>
         </div>
         <Button
@@ -51,21 +52,21 @@ export function WalletCard({
             <ArrowDownLeft className="h-3.5 w-3.5" />
             Deposits
           </p>
-          <p className="mt-1 font-semibold">{formatCurrency(totalDeposits)}</p>
+          <p className="mt-1 font-semibold">{formatPrice(totalDeposits)}</p>
         </div>
         <div>
           <p className="flex items-center gap-1.5 text-primary-foreground/70">
             <ArrowUpRight className="h-3.5 w-3.5" />
             Purchases
           </p>
-          <p className="mt-1 font-semibold">{formatCurrency(totalPurchases)}</p>
+          <p className="mt-1 font-semibold">{formatPrice(totalPurchases)}</p>
         </div>
         <div>
           <p className="flex items-center gap-1.5 text-primary-foreground/70">
             <RotateCcw className="h-3.5 w-3.5" />
             Refunds
           </p>
-          <p className="mt-1 font-semibold">{formatCurrency(totalRefunds)}</p>
+          <p className="mt-1 font-semibold">{formatPrice(totalRefunds)}</p>
         </div>
       </div>
     </Card>
