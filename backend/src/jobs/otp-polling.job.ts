@@ -1,4 +1,5 @@
 import { prisma } from "../config/database.js";
+import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { numberRepository } from "../repositories/number.repository.js";
 import { createNotification } from "../services/audit.service.js";
