@@ -49,7 +49,8 @@ export default function AdminDashboardPage() {
         <StatCard title="Pending Refunds" value={data.pendingRefunds} icon={<Receipt className="h-5 w-5" />} />
         <StatCard title="Total Deposits" value={formatPrice(data.totalDeposits)} icon={<DollarSign className="h-5 w-5" />} />
         <StatCard title="Total Purchases" value={formatPrice(data.totalPurchases)} icon={<BookOpen className="h-5 w-5" />} />
-        <StatCard title="Available Stock" value={data.availableStock} icon={<Package className="h-5 w-5" />} />
+        <StatCard title="Imported Stock" value={data.importedAvailableStock} icon={<Package className="h-5 w-5" />} />
+        <StatCard title="SMSBower Stock" value={data.smsbowerAvailableStock} icon={<Package className="h-5 w-5" />} />
       </div>
     </div>
   );

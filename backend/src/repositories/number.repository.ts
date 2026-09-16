@@ -8,7 +8,13 @@ export const numberRepository = {
     return prisma.purchasedNumber.findMany({
       where,
       include: {
-        product: { select: { id: true, name: true, service: true, country: true } },
+        product: { select: { id: true, name: true, service: true, country: true, source: true } },
+        order: {
+          select: {
+            status: true,
+            refunds: { select: { status: true }, orderBy: { createdAt: "desc" }, take: 1 },
+          },
+        },
         otpMessages: { orderBy: { receivedAt: "desc" }, take: 1 },
       },
       orderBy: { createdAt: "desc" },
@@ -59,6 +65,19 @@ export const numberRepository = {
     });
   },
 
+  findProductNumberByPhoneNumber(phoneNumber: string) {
+    return prisma.productNumber.findUnique({
+      where: { number: phoneNumber },
+      select: { id: true, providerEndpoint: true, status: true },
+    });
+  },
+
+  hasOtpCode(numberId: string) {
+    return prisma.otpMessage.count({
+      where: { purchasedNumberId: numberId, otpCode: { not: null } },
+    });
+  },
+
   findOtpMessages(numberId: string) {
     return prisma.otpMessage.findMany({
       where: { purchasedNumberId: numberId },
@@ -104,7 +123,12 @@ export const numberRepository = {
         status: { in: ["ACTIVE", "WAITING", "RECEIVED"] },
         expiresAt: { not: null, lt: now },
       },
-      select: { id: true },
+      select: {
+        id: true,
+        status: true,
+        otpCount: true,
+        vendorActivationId: true,
+      },
     });
   },
 
@@ -201,6 +225,23 @@ export const numberRepository = {
 
   update(id: string, data: Prisma.PurchasedNumberUpdateInput) {
     return prisma.purchasedNumber.update({ where: { id }, data });
+  },
+
+  listForImportedOtpPolling(now: Date, limit: number) {
+    return prisma.purchasedNumber.findMany({
+      where: {
+        productNumberId: { not: null },
+        product: { source: "IMPORTED" },
+        status: { in: ["ACTIVE", "WAITING"] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+      include: {
+        product: { select: { service: true } },
+        productNumber: { select: { providerEndpoint: true } },
+      },
+      orderBy: { lastCheckedAt: "asc" },
+      take: limit,
+    });
   },
 
   listForSmsbowerPolling(now: Date, limit: number) {

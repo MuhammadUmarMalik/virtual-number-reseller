@@ -46,6 +46,39 @@ export const productNumberRepository = {
       where: buildWhere(productId, params),
     });
   },
+
+  findByIdForAdmin(numberId: string) {
+    return prisma.productNumber.findUnique({
+      where: { id: numberId },
+      select: {
+        id: true,
+        productId: true,
+        number: true,
+        providerEndpoint: true,
+        status: true,
+        purchasedNumber: { select: { id: true } },
+      },
+    });
+  },
+
+  findByNumber(number: string) {
+    return prisma.productNumber.findUnique({
+      where: { number },
+      select: { id: true },
+    });
+  },
+
+  update(numberId: string, data: { number?: string; providerEndpoint?: string }) {
+    return prisma.productNumber.update({
+      where: { id: numberId },
+      data,
+      select: { id: true, number: true, status: true },
+    });
+  },
+
+  remove(numberId: string) {
+    return prisma.productNumber.delete({ where: { id: numberId } });
+  },
 };
 
 function buildWhere(

@@ -9,6 +9,10 @@ import type { NumberStatus } from "@prisma/client";
 
 function serializeNumber(number: {
   product?: unknown;
+  order?: {
+    status: string;
+    refunds?: Array<{ status: string }>;
+  } | null;
   expiresAt?: Date | null;
   lastCheckedAt?: Date | null;
   purchasedAt: Date;
@@ -23,10 +27,13 @@ function serializeNumber(number: {
     vendorOperator: _vendorOperator,
     currency: _currency,
     vendor: _vendor,
+    order: _order,
     ...safe
   } = number;
   return {
     ...safe,
+    orderStatus: _order?.status ?? null,
+    refundStatus: _order?.refunds?.[0]?.status ?? null,
     purchasedAt: number.purchasedAt.toISOString(),
     createdAt: number.createdAt.toISOString(),
     updatedAt: number.updatedAt.toISOString(),

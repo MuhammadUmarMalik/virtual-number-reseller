@@ -38,6 +38,7 @@ export const dashboardRepository = {
         service: true,
         numberType: true,
         sellingPrice: true,
+        currency: true,
         availableStock: true,
       },
     });

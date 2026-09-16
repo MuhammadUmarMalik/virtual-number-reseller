@@ -208,7 +208,7 @@ export function ProductFormModal({
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormField
-            label="Vendor Cost (PKR)"
+            label="Vendor Cost (USD)"
             type="number"
             inputMode="numeric"
             error={errors.vendorCost?.message}
@@ -216,7 +216,7 @@ export function ProductFormModal({
             {...register("vendorCost", { valueAsNumber: true })}
           />
           <FormField
-            label="Price (PKR)"
+            label="Price (USD)"
             type="number"
             inputMode="numeric"
             error={errors.sellingPrice?.message}
@@ -236,7 +236,7 @@ export function ProductFormModal({
           <p className="text-xs text-muted-foreground">
             Selling price auto-computed: {vendorCost} × {marginMultiplier} ={" "}
             <span className="font-semibold text-foreground">
-              Rs. {computedPrice.toFixed(2)}
+              $ {computedPrice.toFixed(2)}
             </span>
           </p>
         )}

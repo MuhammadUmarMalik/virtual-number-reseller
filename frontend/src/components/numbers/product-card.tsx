@@ -30,7 +30,7 @@ export function ProductCard({ product, onBuy }: ProductCardProps) {
 
       <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
         <p className="text-lg font-semibold tracking-tight">
-          {formatPrice(product.sellingPrice)}
+          {formatPrice(product.sellingPrice, product.currency)}
         </p>
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <Package className="h-3.5 w-3.5" />

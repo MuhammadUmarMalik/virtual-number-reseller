@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { PasswordField } from "@/components/ui/password-field";
 import { useAuth } from "@/hooks/use-auth";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -78,9 +79,8 @@ export default function SignInPage() {
           error={errors.email?.message}
           {...register("email")}
         />
-        <FormField
+        <PasswordField
           label="Password"
-          type="password"
           placeholder="Enter your password"
           autoComplete="current-password"
           disabled={isPending}

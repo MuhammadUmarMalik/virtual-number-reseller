@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Receipt } from "lucide-react";
 
@@ -22,6 +22,7 @@ import {
 } from "@/services/admin.service";
 
 export default function AdminRefundsPage() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
@@ -37,6 +38,7 @@ export default function AdminRefundsPage() {
       await approveRefund(refundId);
       toast.success("Refund approved and wallet credited");
       void query.refetch();
+      void queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
     } catch (error) {
       toast.error(
         error instanceof ApiError ? error.message : "Unable to approve refund"

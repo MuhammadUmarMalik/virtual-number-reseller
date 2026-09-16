@@ -27,6 +27,13 @@ describe("parseActivation", () => {
     });
   });
 
+  it("parses ACCESS_NUMBER responses (live API format)", () => {
+    expect(parseActivation("ACCESS_NUMBER:639506973:77025248723")).toEqual({
+      activationId: "639506973",
+      phoneNumber: "77025248723",
+    });
+  });
+
   it("normalizes spacing inside phone numbers", () => {
     expect(parseActivation("ACCESS_ACTIVATION:123:+1 202 555 0123")).toEqual({
       activationId: "123",

@@ -1,31 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { User } from "lucide-react";
 
-import { RefundModal } from "@/components/orders/refund-modal";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useCurrency } from "@/hooks/use-currency";
-import { getOrder } from "@/services/order.service";
+import { getAdminOrder } from "@/services/admin.service";
 
-export default function OrderDetailPage() {
+export default function AdminOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
-  const [showRefund, setShowRefund] = useState(false);
+  const { formatPrice } = useCurrency();
 
   const query = useQuery({
-    queryKey: ["orders", orderId],
-    queryFn: () => getOrder(orderId),
+    queryKey: ["admin", "orders", orderId],
+    queryFn: () => getAdminOrder(orderId),
     enabled: Boolean(orderId),
   });
-
-  const { formatPrice } = useCurrency();
 
   if (query.isLoading) {
     return <LoadingState label="Loading order..." />;
@@ -36,22 +31,12 @@ export default function OrderDetailPage() {
   }
 
   const order = query.data;
-  const canRefund = ["ACTIVE", "WAITING_OTP", "OTP_RECEIVED", "COMPLETED"].includes(
-    order.status
-  );
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Order ${order.orderCode}`}
         description={`Placed on ${new Date(order.createdAt).toLocaleString("en-PK")}`}
-        actions={
-          canRefund && (
-            <Button type="button" variant="danger" onClick={() => setShowRefund(true)}>
-              Request Refund
-            </Button>
-          )
-        }
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -70,7 +55,10 @@ export default function OrderDetailPage() {
               </thead>
               <tbody>
                 {order.items?.map((item) => (
-                  <tr key={item.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
+                  <tr
+                    key={item.id}
+                    className="border-b border-border transition-colors last:border-0 hover:bg-muted/40"
+                  >
                     <td className="px-4 py-3 font-medium text-foreground">
                       {item.product?.name ?? item.productId}
                     </td>
@@ -91,21 +79,43 @@ export default function OrderDetailPage() {
           </div>
         </section>
 
-        <section>
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Summary</h2>
-          <div className="rounded-xl border border-border bg-card p-5">
+        <div className="space-y-6">
+          <Card className="p-5">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <User className="h-4 w-4" /> Customer
+            </h2>
+            {order.user ? (
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Name</dt>
+                  <dd className="font-medium text-foreground">{order.user.fullName}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Email</dt>
+                  <dd className="text-right text-foreground">{order.user.email}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">WhatsApp</dt>
+                  <dd className="font-mono text-foreground">
+                    {order.user.whatsappNumber || "—"}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">{order.userId}</p>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">Summary</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Subtotal</dt>
-                <dd className="font-medium text-foreground">
-                  {formatPrice(order.subtotal)}
-                </dd>
+                <dd className="font-medium text-foreground">{formatPrice(order.subtotal)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Total</dt>
-                <dd className="font-semibold text-foreground">
-                  {formatPrice(order.total)}
-                </dd>
+                <dd className="font-semibold text-foreground">{formatPrice(order.total)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Status</dt>
@@ -113,9 +123,15 @@ export default function OrderDetailPage() {
                   <StatusBadge status={order.status} />
                 </dd>
               </div>
+              {order.failureReason && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Reason</dt>
+                  <dd className="text-right text-foreground">{order.failureReason}</dd>
+                </div>
+              )}
             </dl>
-          </div>
-        </section>
+          </Card>
+        </div>
       </div>
 
       <section>
@@ -149,12 +165,6 @@ export default function OrderDetailPage() {
                           })
                         : "—"}
                     </span>
-                    <Link
-                      href="/active-numbers"
-                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80"
-                    >
-                      View <ArrowRight className="h-4 w-4" />
-                    </Link>
                   </div>
                 </li>
               ))}
@@ -162,17 +172,6 @@ export default function OrderDetailPage() {
           )}
         </div>
       </section>
-
-      {showRefund && (
-        <RefundModal
-          orderId={order.id}
-          onClose={() => setShowRefund(false)}
-          onSuccess={() => {
-            setShowRefund(false);
-            void query.refetch();
-          }}
-        />
-      )}
     </div>
   );
 }

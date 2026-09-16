@@ -7,6 +7,7 @@ vi.mock("../src/repositories/number.repository.js", () => ({
     createOtpMessage: vi.fn(),
     updateStatus: vi.fn(),
     findLatestOtpMessage: vi.fn(),
+    findProductNumberByPhoneNumber: vi.fn(),
   },
 }));
 
@@ -50,6 +51,9 @@ beforeEach(() => {
   vi.mocked(numberRepository.updateStatus).mockResolvedValue(undefined);
   vi.mocked(numberRepository.findLatestOtpMessage).mockResolvedValue(
     latestMessage as never
+  );
+  vi.mocked(numberRepository.findProductNumberByPhoneNumber).mockResolvedValue(
+    null
   );
 });
 
@@ -104,6 +108,97 @@ describe("getOtpByNumber (imported product)", () => {
       status: "RECEIVED",
     });
     expect(result.message?.rawMessage).toBe("Your WhatsApp code is 894561");
+  });
+
+  it("falls back to the inventory number by phone when the link is missing", async () => {
+    vi.mocked(numberRepository.findByIdForUserWithEndpoint).mockResolvedValueOnce({
+      ...importedNumber,
+      productNumber: null,
+    } as never);
+    vi.mocked(numberRepository.findProductNumberByPhoneNumber).mockResolvedValueOnce({
+      id: "pn_1",
+      providerEndpoint: "https://8.8.8.8/otp",
+      status: "SOLD",
+    } as never);
+    mockedFetch.mockResolvedValue({
+      ok: true,
+      text: async () => "Your WhatsApp code is 894561",
+    } as Response);
+
+    const result = await getOtpByNumber("user_1", "num_1");
+
+    expect(numberRepository.findProductNumberByPhoneNumber).toHaveBeenCalledWith(
+      "+12025550123"
+    );
+    expect(result.otp).toBe("894561");
+    expect(result.waiting).toBe(false);
+  });
+
+  it("extracts the real OTP from a JSON provider response (SMS8 data.code)", async () => {
+    mockedFetch.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          code: 0,
+          msg: "succeed",
+          data: { code: "894561", code_time: "2026-09-14 08:00:00" },
+        }),
+    } as Response);
+
+    const result = await getOtpByNumber("user_1", "num_1");
+
+    expect(numberRepository.createOtpMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ otpCode: "894561" })
+    );
+    expect(result.otp).toBe("894561");
+    expect(result.waiting).toBe(false);
+  });
+
+  it("does not concatenate extra digits from a code field with surrounding text", async () => {
+    mockedFetch.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          code: 0,
+          msg: "succeed",
+          data: {
+            code: "Your verification code is 87190, ID 294",
+            code_time: "2026-09-14 08:00:00",
+          },
+        }),
+    } as Response);
+
+    const result = await getOtpByNumber("user_1", "num_1");
+
+    expect(numberRepository.createOtpMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ otpCode: "87190" })
+    );
+    expect(numberRepository.createOtpMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ otpCode: "87190294" })
+    );
+  });
+
+  it("does not read a wrong code from JSON dates when the provider has no code yet", async () => {
+    vi.mocked(numberRepository.findLatestOtpMessage).mockResolvedValueOnce(null);
+    mockedFetch.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          code: 0,
+          msg: "No verification code",
+          data: {
+            code: "",
+            code_time: "",
+            expired_date: "2026-11-24 00:00:00",
+          },
+        }),
+    } as Response);
+
+    const result = await getOtpByNumber("user_1", "num_1");
+
+    expect(numberRepository.createOtpMessage).not.toHaveBeenCalled();
+    expect(result.otp).toBeNull();
+    expect(result.waiting).toBe(true);
   });
 
   it("returns waiting state when the provider has no message yet", async () => {

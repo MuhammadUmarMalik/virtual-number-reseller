@@ -7,6 +7,8 @@ export type PurchasedNumberStatus =
   | "DISABLED"
   | "CANCELLED";
 
+export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
+
 export interface PurchasedNumber {
   id: string;
   userId: string;
@@ -37,7 +39,11 @@ export interface PurchasedNumber {
     name: string;
     service: string;
     country: string;
+    source?: "VENDOR" | "IMPORTED";
   } | null;
+  orderStatus?: string | null;
+  refundStatus?: RefundStatus | null;
+  otpMessages?: OtpMessage[];
 }
 
 export interface OtpMessage {
@@ -71,6 +77,7 @@ export interface NumberActionResult {
   code?: string | null;
   cancelledAt?: string | null;
   retryResult?: string;
+  refunded?: string | null;
 }
 
 export interface OtpResult {

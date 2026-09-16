@@ -130,7 +130,8 @@ function ensureNoError(text: string): string {
 
 export function parseActivation(text: string): SmsBowerActivation {
   const cleaned = text.replace(/\s+/g, "");
-  const match = cleaned.match(/^ACCESS_ACTIVATION:(\d+):(.+)$/);
+  // SMSBower may return ACCESS_NUMBER or ACCESS_ACTIVATION — both carry ID:NUMBER.
+  const match = cleaned.match(/^ACCESS_(?:NUMBER|ACTIVATION):(\d+):(.+)$/);
   if (!match) {
     throw new AppError(
       `SMSBower: unexpected getNumber response "${truncateText(text)}"`,

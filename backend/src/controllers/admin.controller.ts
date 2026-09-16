@@ -209,6 +209,25 @@ export const adminController = {
     res.json(successResponse("Product numbers retrieved", data));
   }),
 
+  updateProductNumber: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.updateProductNumber(
+      paramString(req.params.productId),
+      paramString(req.params.numberId),
+      req.body,
+      req.user!.id
+    );
+    res.json(successResponse("Product number updated", data));
+  }),
+
+  deleteProductNumber: asyncHandler(async (req: Request, res: Response) => {
+    const data = await adminService.deleteProductNumber(
+      paramString(req.params.productId),
+      paramString(req.params.numberId),
+      req.user!.id
+    );
+    res.json(successResponse("Product number deleted", data));
+  }),
+
   syncProductStock: asyncHandler(async (req: Request, res: Response) => {
     const data = await adminService.syncProductStock(
       paramString(req.params.productId),

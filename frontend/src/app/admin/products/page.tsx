@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Package, Power, RefreshCw, Trash2, Globe, Upload, Hash } from "lucide-react";
+import { Globe, Package, Power, RefreshCw, Trash2, Upload, Hash } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -111,8 +111,12 @@ export default function AdminProductsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (productId: string) => deleteProduct(productId),
-    onSuccess: () => {
-      toast.success("Product deleted");
+    onSuccess: (result) => {
+      toast.success(
+        result.softDelete
+          ? "Product deleted — order history preserved"
+          : "Product deleted"
+      );
       void queryClient.invalidateQueries({ queryKey: ["admin", "products"] });
     },
     onError: (error) => {
@@ -162,17 +166,13 @@ export default function AdminProductsPage() {
         description="Manage the numbers you sell"
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowSmsBowerCatalog(true)}
-            >
+            <Button type="button" variant="outline" onClick={() => setShowSmsBowerCatalog(true)}>
               <Globe className="mr-2 h-4 w-4" />
               SMSBower Catalog
             </Button>
             <Button type="button" onClick={() => setShowImport(true)}>
               <Upload className="mr-2 h-4 w-4" />
-              Import Stock
+              Import Numbers
             </Button>
           </div>
         }
@@ -231,19 +231,10 @@ export default function AdminProductsPage() {
           title={hasFilters ? "No matching products" : "No products yet"}
           icon={<Package className="h-6 w-6" />}
           action={
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowSmsBowerCatalog(true)}
-              >
-                <Globe className="mr-2 h-4 w-4" />
-                SMSBower Catalog
-              </Button>
-              <Button onClick={() => setShowImport(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Import Stock
-              </Button>
-            </div>
+            <Button onClick={() => setShowImport(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import Numbers
+            </Button>
           }
         />
       ) : (
@@ -304,7 +295,7 @@ export default function AdminProductsPage() {
                       {product.numberType}
                     </td>
                     <td className="px-4 py-3 font-semibold text-foreground">
-                      {formatPrice(product.sellingPrice)}
+                      {formatPrice(product.sellingPrice, product.currency)}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {product.availableStock}
@@ -434,6 +425,14 @@ export default function AdminProductsPage() {
         />
       )}
 
+      {numbersProduct && (
+        <ProductNumbersModal
+          productId={numbersProduct.id}
+          productName={numbersProduct.name}
+          onClose={() => setNumbersProduct(null)}
+        />
+      )}
+
       {showSmsBowerCatalog && (
         <SmsBowerCatalogModal
           onClose={() => setShowSmsBowerCatalog(false)}
@@ -441,14 +440,6 @@ export default function AdminProductsPage() {
             setShowSmsBowerCatalog(false);
             void query.refetch();
           }}
-        />
-      )}
-
-      {numbersProduct && (
-        <ProductNumbersModal
-          productId={numbersProduct.id}
-          productName={numbersProduct.name}
-          onClose={() => setNumbersProduct(null)}
         />
       )}
     </div>

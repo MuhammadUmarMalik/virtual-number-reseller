@@ -4,6 +4,7 @@ import { numberRepository } from "../repositories/number.repository.js";
 import { createNotification } from "../services/audit.service.js";
 import { syncNumberOtps } from "../services/number.service.js";
 import { smsbowerActivationService } from "../services/smsbower-activation.service.js";
+import { fetchOtpFromProvider } from "../services/otp-proxy.service.js";
 
 const POLL_BATCH = 50;
 
@@ -30,6 +31,40 @@ export async function runOtpPolling() {
     }
     if (newOtps > 0) {
       logger.info(`OTP polling saved ${newOtps} new messages`);
+    }
+  }
+
+  // Poll imported numbers via their per-number provider endpoints
+  const imported = await numberRepository.listForImportedOtpPolling(now, POLL_BATCH);
+  if (imported.length > 0) {
+    let importedNewOtps = 0;
+    for (const number of imported) {
+      try {
+        const endpoint = number.productNumber?.providerEndpoint;
+        if (!endpoint) continue;
+        const result = await fetchOtpFromProvider(
+          endpoint,
+          number.phoneNumber,
+          number.id,
+          number.userId,
+          number.product?.service ?? null,
+        );
+        if (result?.otpCode) {
+          importedNewOtps++;
+          await createNotification(prisma, {
+            userId: number.userId,
+            title: "New OTP received",
+            message: `A new OTP was received for ${number.phoneNumber}.`,
+            type: "OTP",
+          });
+        }
+        await numberRepository.touchLastChecked(number.id);
+      } catch (error) {
+        logger.error(`Imported OTP polling failed for number ${number.id}`, error);
+      }
+    }
+    if (importedNewOtps > 0) {
+      logger.info(`Imported OTP polling saved ${importedNewOtps} new messages`);
     }
   }
 

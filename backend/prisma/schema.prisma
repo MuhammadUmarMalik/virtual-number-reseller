@@ -287,6 +287,7 @@ model Product {
   status            ProductStatus @default(ACTIVE)
   source            ProductSource @default(VENDOR)
   currency          String        @default("USD")
+  deletedAt         DateTime?     @map("deleted_at")
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
 

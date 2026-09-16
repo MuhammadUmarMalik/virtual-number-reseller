@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { numberService } from "../services/number.service.js";
+import { refundService } from "../services/refund.service.js";
 import { getOtpByNumber } from "../services/otp-proxy.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { successResponse } from "../utils/api-response.js";
@@ -46,5 +47,13 @@ export const numberController = {
   getOtp: asyncHandler(async (req: Request, res: Response) => {
     const data = await getOtpByNumber(req.user!.id, paramString(req.params.numberId));
     res.json(successResponse("OTP retrieved", data));
+  }),
+
+  requestRefund: asyncHandler(async (req: Request, res: Response) => {
+    const data = await refundService.createNumberRefund(
+      req.user!.id,
+      paramString(req.params.numberId)
+    );
+    res.status(201).json(successResponse("Refund requested", data));
   }),
 };

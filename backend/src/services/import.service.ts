@@ -137,7 +137,11 @@ export async function validateRows(
   for (const item of parsed) {
     const errors: string[] = [];
 
-    const number = normalizePhoneNumber(item.number);
+    const normalized = normalizePhoneNumber(item.number);
+    // Accept numbers written without the "+" — Excel sheets commonly omit it —
+    // and always store the canonical E.164 form so the prefix is never lost.
+    const number =
+      normalized && !normalized.startsWith("+") ? `+${normalized}` : normalized;
     if (!number) {
       errors.push("Number is required");
     } else if (!isValidE164Number(number)) {

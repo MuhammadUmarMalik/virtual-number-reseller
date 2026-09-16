@@ -53,7 +53,7 @@ export const productRepository = {
 };
 
 function buildWhere(params: ProductListParams): Prisma.ProductWhereInput {
-  const where: Prisma.ProductWhereInput = {};
+  const where: Prisma.ProductWhereInput = { deletedAt: null };
 
   if (params.status && params.status !== "ALL") {
     where.status = params.status as ProductStatus;

@@ -103,9 +103,14 @@ export default function AdminNumbersPage() {
 
   const cancelMutation = useMutation({
     mutationFn: (numberId: string) => cancelAdminNumber(numberId),
-    onSuccess: () => {
-      toast.success("Number cancelled");
+    onSuccess: (result) => {
+      toast.success(
+        result.refunded
+          ? `Number cancelled — Rs. ${result.refunded} refunded`
+          : "Number cancelled"
+      );
       void queryClient.invalidateQueries({ queryKey: ["admin", "numbers"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
     },
     onError: (error) => {
       toast.error(

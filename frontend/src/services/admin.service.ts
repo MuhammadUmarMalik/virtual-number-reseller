@@ -238,6 +238,35 @@ export async function getProductNumbers(
   );
 }
 
+export interface UpdateProductNumberPayload {
+  number?: string;
+  providerEndpoint?: string;
+}
+
+export async function updateProductNumber(
+  productId: string,
+  numberId: string,
+  payload: UpdateProductNumberPayload
+): Promise<ProductNumber> {
+  return apiClient<ProductNumber>(
+    `/admin/products/${productId}/numbers/${numberId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteProductNumber(
+  productId: string,
+  numberId: string
+): Promise<void> {
+  return apiClient<void>(
+    `/admin/products/${productId}/numbers/${numberId}`,
+    { method: "DELETE" }
+  );
+}
+
 export interface ImportProductPayload {
   name: string;
   country: string;
@@ -391,8 +420,10 @@ export async function syncProductStock(
   );
 }
 
-export async function deleteProduct(productId: string): Promise<void> {
-  return apiClient<void>(`/admin/products/${productId}`, {
+export async function deleteProduct(
+  productId: string
+): Promise<{ softDelete: boolean }> {
+  return apiClient<{ softDelete: boolean }>(`/admin/products/${productId}`, {
     method: "DELETE",
   });
 }

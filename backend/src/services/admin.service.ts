@@ -15,6 +15,8 @@ import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.
 import { smsbowerActivationService } from "./smsbower-activation.service.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
+import { normalizePhoneNumber, isValidE164Number, matchesDialCode } from "../utils/phone.js";
+import { assertSafeProviderUrl } from "../utils/ssrf.js";
 import { settingsService } from "./settings.service.js";
 
 function toString(value: { toString(): string }): string {
@@ -63,7 +65,8 @@ export const adminService = {
       pendingRefunds,
       totalDepositsAgg,
       totalPurchasesAgg,
-      availableStockAgg,
+      importedAvailableStock,
+      smsbowerStockAgg,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.order.count(),
@@ -77,8 +80,19 @@ export const adminService = {
         _sum: { amount: true },
         where: { type: "PURCHASE" },
       }),
-      prisma.product.aggregate({ _sum: { availableStock: true } }),
+      prisma.productNumber.count({
+        where: {
+          status: "AVAILABLE",
+          product: { source: "IMPORTED" },
+        },
+      }),
+      prisma.product.aggregate({
+        _sum: { availableStock: true },
+        where: { source: "VENDOR", vendor: "SMSBOWER" },
+      }),
     ]);
+
+    const smsbowerAvailableStock = smsbowerStockAgg._sum.availableStock ?? 0;
 
     return {
       totalUsers,
@@ -87,7 +101,9 @@ export const adminService = {
       pendingRefunds,
       totalDeposits: toString(totalDepositsAgg._sum.amount ?? new Prisma.Decimal(0)),
       totalPurchases: toString(totalPurchasesAgg._sum.amount ?? new Prisma.Decimal(0)),
-      availableStock: availableStockAgg._sum.availableStock ?? 0,
+      importedAvailableStock,
+      smsbowerAvailableStock,
+      availableStock: importedAvailableStock + smsbowerAvailableStock,
     };
   },
 
@@ -477,6 +493,103 @@ export const adminService = {
     ]);
 
     return buildPagination(items, total, { page, limit });
+  },
+
+  async updateProductNumber(
+    productId: string,
+    numberId: string,
+    input: { number?: string; providerEndpoint?: string },
+    adminId: string
+  ) {
+    const product = await productRepository.findById(productId);
+    if (!product) {
+      throw new AppError("Product not found", 404);
+    }
+
+    const existing = await productNumberRepository.findByIdForAdmin(numberId);
+    if (!existing || existing.productId !== productId) {
+      throw new AppError("Product number not found", 404);
+    }
+    // A number already handed to a buyer must not be changed.
+    if (existing.purchasedNumber) {
+      throw new AppError("Sold numbers cannot be updated", 409);
+    }
+
+    const data: { number?: string; providerEndpoint?: string } = {};
+
+    if (input.number !== undefined) {
+      const normalized = normalizePhoneNumber(input.number);
+      if (!isValidE164Number(normalized)) {
+        throw new AppError("Phone number must be in international format, e.g. +12025550123", 400);
+      }
+      if (!matchesDialCode(normalized, product.countryCode)) {
+        throw new AppError("Phone number does not match the product country", 400);
+      }
+      const taken = await productNumberRepository.findByNumber(normalized);
+      if (taken && taken.id !== numberId) {
+        throw new AppError("Another number with this phone number already exists", 409);
+      }
+      data.number = normalized;
+    }
+
+    if (input.providerEndpoint !== undefined) {
+      const endpoint = input.providerEndpoint.trim();
+      if (endpoint) data.providerEndpoint = await assertSafeProviderUrl(endpoint);
+      // Empty endpoint means "keep the current one" — its value is never returned to the client.
+    }
+
+    const updated = await productNumberRepository.update(numberId, data);
+
+    await createAuditLog(prisma, {
+      adminId,
+      action: "PRODUCT_NUMBER_UPDATE",
+      entityType: "ProductNumber",
+      entityId: numberId,
+      oldValue: { number: existing.number },
+      newValue: { number: updated.number },
+    });
+
+    return {
+      id: updated.id,
+      number: updated.number,
+      status: updated.status,
+    };
+  },
+
+  async deleteProductNumber(productId: string, numberId: string, adminId: string) {
+    const product = await productRepository.findById(productId);
+    if (!product) {
+      throw new AppError("Product not found", 404);
+    }
+
+    const existing = await productNumberRepository.findByIdForAdmin(numberId);
+    if (!existing || existing.productId !== productId) {
+      throw new AppError("Product number not found", 404);
+    }
+    if (existing.purchasedNumber) {
+      throw new AppError("Sold numbers cannot be deleted", 409);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.productNumber.delete({ where: { id: numberId } });
+      // Reclaim stock only for numbers that were counted as available.
+      if (existing.status === "AVAILABLE") {
+        await tx.product.updateMany({
+          where: { id: productId, availableStock: { gt: 0 } },
+          data: { availableStock: { decrement: 1 } },
+        });
+      }
+    });
+
+    await createAuditLog(prisma, {
+      adminId,
+      action: "PRODUCT_NUMBER_DELETE",
+      entityType: "ProductNumber",
+      entityId: numberId,
+      oldValue: { number: existing.number, status: existing.status },
+    });
+
+    return { id: numberId };
   },
 
   async syncProductStock(productId: string, adminId: string) {

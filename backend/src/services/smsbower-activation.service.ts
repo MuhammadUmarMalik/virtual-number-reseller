@@ -6,6 +6,7 @@ import { numberRepository } from "../repositories/number.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { extractOtp, hashMessage } from "../utils/otp-parser.js";
 import { createNotification } from "./audit.service.js";
+import { creditWallet } from "./wallet-ops.js";
 
 function mapSmsbowerStatusToApp(
   sbStatus: string
@@ -39,6 +40,7 @@ export const smsbowerActivationService = {
         activationStatus: true,
         phoneNumber: true,
         userId: true,
+        expiresAt: true,
         product: { select: { name: true } },
       },
     });
@@ -87,7 +89,14 @@ export const smsbowerActivationService = {
     }
 
     await numberRepository.update(numberId, updateData);
-    return { status, activationStatus, otpCount, code: sbStatus.code ?? null };
+    return {
+      status,
+      activationStatus,
+      otpCount,
+      code: sbStatus.code ?? null,
+      lastCheckedAt: new Date().toISOString(),
+      expiresAt: number.expiresAt ? number.expiresAt.toISOString() : null,
+    };
   },
 
   async cancelActivation(numberId: string, userId?: string) {
@@ -103,14 +112,64 @@ export const smsbowerActivationService = {
 
     await smsbowerClient.setStatus(number.vendorActivationId, SMSBOWER_SET_STATUS.CANCEL);
     const now = new Date();
-    await numberRepository.update(numberId, {
-      status: "CANCELLED",
-      activationStatus: "STATUS_CANCEL",
-      cancelledAt: now,
-      lastCheckedAt: now,
+
+    // Claim the transition inside a transaction so a concurrent cancel or an
+    // already-approved refund cannot credit the wallet twice.
+    const result = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.purchasedNumber.updateMany({
+        where: {
+          id: number.id,
+          status: { notIn: ["EXPIRED", "REFUNDED", "DISABLED", "CANCELLED"] },
+        },
+        data: {
+          status: "CANCELLED",
+          activationStatus: "STATUS_CANCEL",
+          cancelledAt: now,
+          lastCheckedAt: now,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError("Number is no longer active", 400);
+      }
+
+      // No code arrived, so the purchase delivered nothing — return the money.
+      let refunded: string | null = null;
+      if (number.otpCount === 0) {
+        const order = await tx.order.findUnique({
+          where: { id: number.orderId },
+          include: { numbers: { select: { id: true } } },
+        });
+        if (order && order.numbers.length > 0) {
+          const proRata = order.total
+            .div(order.numbers.length)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+          await creditWallet(tx, {
+            userId: number.userId,
+            amount: proRata,
+            type: "REFUND",
+            referenceType: "PURCHASED_NUMBER",
+            referenceId: number.id,
+            description: `Cancel refund for ${number.phoneNumber}`,
+            createdBy: userId ?? undefined,
+          });
+          refunded = proRata.toString();
+          await createNotification(tx, {
+            userId: number.userId,
+            title: "Number cancelled — refunded",
+            message: `The amount for ${number.phoneNumber} was returned to your wallet.`,
+            type: "REFUND",
+          });
+        }
+      }
+
+      return { refunded };
     });
 
-    return { status: "CANCELLED", cancelledAt: now.toISOString() };
+    return {
+      status: "CANCELLED",
+      cancelledAt: now.toISOString(),
+      refunded: result.refunded,
+    };
   },
 
   async retryActivation(numberId: string, userId?: string) {

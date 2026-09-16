@@ -62,9 +62,18 @@ describe("validateRows", () => {
     expect(invalid).toHaveLength(0);
   });
 
+  it("accepts numbers written without the + prefix and stores the E.164 form", async () => {
+    const { valid, invalid } = await validateRows(
+      [{ row: 2, number: "12025550123", endpoint: "https://8.8.8.8/otp" }],
+      { countryCode: "+1" }
+    );
+    expect(invalid).toHaveLength(0);
+    expect(valid[0].number).toBe("+12025550123");
+  });
+
   it("flags numbers in the wrong format", async () => {
     const { valid, invalid } = await validateRows(
-      [{ row: 2, number: "2025550123", endpoint: "https://8.8.8.8/otp" }],
+      [{ row: 2, number: "12345", endpoint: "https://8.8.8.8/otp" }],
       { countryCode: "+1" }
     );
     expect(valid).toHaveLength(0);

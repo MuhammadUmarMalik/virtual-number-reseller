@@ -1,4 +1,4 @@
-import { convertPrice } from "@/lib/convert-currency";
+import { convertPrice, LEDGER_CURRENCY } from "@/lib/convert-currency";
 import { formatCurrency } from "@/lib/format-currency";
 import { useCurrencyStore } from "@/store/currency.store";
 
@@ -11,10 +11,10 @@ export function useCurrency() {
     selectedCurrency,
     rates,
     setCurrency,
-    convertPrice: (amountPkr: number) =>
-      convertPrice(amountPkr, selectedCurrency, rates),
-    formatPrice: (amount: string | number) =>
-      formatCurrency(amount, selectedCurrency, rates),
+    convertPrice: (amount: number, baseCurrency: string = LEDGER_CURRENCY) =>
+      convertPrice(amount, selectedCurrency, rates, baseCurrency),
+    formatPrice: (amount: string | number, baseCurrency?: string) =>
+      formatCurrency(amount, selectedCurrency, rates, baseCurrency),
   };
 }
 

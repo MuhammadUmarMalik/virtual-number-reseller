@@ -6,6 +6,7 @@ import type {
   OtpResult,
   PurchasedNumber,
 } from "@/types/number.types";
+import type { RefundRequest } from "@/types/order.types";
 
 export async function getActiveNumbers(params?: {
   status?: string;
@@ -54,6 +55,12 @@ export async function cancelNumber(numberId: string): Promise<NumberActionResult
 
 export async function retryNumber(numberId: string): Promise<NumberActionResult> {
   return apiClient<NumberActionResult>(`/numbers/${numberId}/retry`, {
+    method: "POST",
+  });
+}
+
+export async function requestRefund(numberId: string): Promise<RefundRequest> {
+  return apiClient<RefundRequest>(`/numbers/${numberId}/refund`, {
     method: "POST",
   });
 }

@@ -8,6 +8,12 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'BLOCKED');
 CREATE TYPE "ProductStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'OUT_OF_STOCK');
 
 -- CreateEnum
+CREATE TYPE "ProductSource" AS ENUM ('VENDOR', 'IMPORTED');
+
+-- CreateEnum
+CREATE TYPE "ProductNumberStatus" AS ENUM ('AVAILABLE', 'RESERVED', 'SOLD', 'DISABLED');
+
+-- CreateEnum
 CREATE TYPE "Vendor" AS ENUM ('SMSBOWER');
 
 -- CreateEnum
@@ -20,7 +26,7 @@ CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PROCESSING', 'ACTIVE', 'WAITING_O
 CREATE TYPE "OrderItemStatus" AS ENUM ('PENDING', 'PROCESSING', 'ACTIVE', 'WAITING_OTP', 'OTP_RECEIVED', 'COMPLETED', 'REFUND_PENDING', 'REFUNDED', 'FAILED', 'EXPIRED');
 
 -- CreateEnum
-CREATE TYPE "NumberStatus" AS ENUM ('WAITING', 'ACTIVE', 'RECEIVED', 'EXPIRED', 'REFUNDED', 'DISABLED');
+CREATE TYPE "NumberStatus" AS ENUM ('WAITING', 'ACTIVE', 'RECEIVED', 'EXPIRED', 'REFUNDED', 'DISABLED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "WalletTransactionType" AS ENUM ('DEPOSIT', 'PURCHASE', 'REFUND', 'ADJUSTMENT_CREDIT', 'ADJUSTMENT_DEBIT', 'REVERSAL');
@@ -52,6 +58,7 @@ CREATE TABLE "users" (
     "password_hash" TEXT NOT NULL,
     "role" "Role" NOT NULL DEFAULT 'USER',
     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
+    "deleted_at" TIMESTAMP(3),
     "avatar_url" TEXT,
     "email_verified" BOOLEAN NOT NULL DEFAULT false,
     "last_login_at" TIMESTAMP(3),
@@ -168,10 +175,26 @@ CREATE TABLE "products" (
     "secret_key" TEXT,
     "vip" TEXT,
     "status" "ProductStatus" NOT NULL DEFAULT 'ACTIVE',
+    "source" "ProductSource" NOT NULL DEFAULT 'VENDOR',
+    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "deleted_at" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "products_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "product_numbers" (
+    "id" TEXT NOT NULL,
+    "product_id" TEXT NOT NULL,
+    "number" TEXT NOT NULL,
+    "provider_endpoint" TEXT NOT NULL,
+    "status" "ProductNumberStatus" NOT NULL DEFAULT 'AVAILABLE',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "product_numbers_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -215,6 +238,7 @@ CREATE TABLE "purchased_numbers" (
     "order_id" TEXT NOT NULL,
     "order_item_id" TEXT,
     "product_id" TEXT NOT NULL,
+    "product_number_id" TEXT,
     "vendor_id" TEXT,
     "phone_number" TEXT NOT NULL,
     "vendor_order_id" TEXT,
@@ -226,6 +250,16 @@ CREATE TABLE "purchased_numbers" (
     "vendor_cost" DECIMAL(65,30),
     "vendor_operator" TEXT,
     "can_get_another_sms" BOOLEAN,
+    "country" TEXT,
+    "country_code" TEXT,
+    "service" TEXT,
+    "provider" TEXT,
+    "selling_price" DECIMAL(65,30),
+    "currency" TEXT DEFAULT 'USD',
+    "activation_status" TEXT,
+    "activation_started_at" TIMESTAMP(3),
+    "activation_completed_at" TIMESTAMP(3),
+    "cancelled_at" TIMESTAMP(3),
     "purchased_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expires_at" TIMESTAMP(3),
     "last_checked_at" TIMESTAMP(3),
@@ -392,6 +426,15 @@ CREATE INDEX "products_vendor_idx" ON "products"("vendor");
 CREATE INDEX "products_vendor_service_country_idx" ON "products"("vendor", "service", "country");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "product_numbers_number_key" ON "product_numbers"("number");
+
+-- CreateIndex
+CREATE INDEX "product_numbers_product_id_idx" ON "product_numbers"("product_id");
+
+-- CreateIndex
+CREATE INDEX "product_numbers_status_idx" ON "product_numbers"("status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "orders_order_code_key" ON "orders"("order_code");
 
 -- CreateIndex
@@ -419,6 +462,9 @@ CREATE INDEX "order_items_order_id_idx" ON "order_items"("order_id");
 CREATE INDEX "order_items_product_id_idx" ON "order_items"("product_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "purchased_numbers_product_number_id_key" ON "purchased_numbers"("product_number_id");
+
+-- CreateIndex
 CREATE INDEX "purchased_numbers_user_id_idx" ON "purchased_numbers"("user_id");
 
 -- CreateIndex
@@ -438,6 +484,15 @@ CREATE INDEX "purchased_numbers_vendor_idx" ON "purchased_numbers"("vendor");
 
 -- CreateIndex
 CREATE INDEX "purchased_numbers_vendor_activation_id_idx" ON "purchased_numbers"("vendor_activation_id");
+
+-- CreateIndex
+CREATE INDEX "purchased_numbers_country_idx" ON "purchased_numbers"("country");
+
+-- CreateIndex
+CREATE INDEX "purchased_numbers_service_idx" ON "purchased_numbers"("service");
+
+-- CreateIndex
+CREATE INDEX "purchased_numbers_activation_status_idx" ON "purchased_numbers"("activation_status");
 
 -- CreateIndex
 CREATE INDEX "otp_messages_user_id_idx" ON "otp_messages"("user_id");
@@ -506,6 +561,9 @@ ALTER TABLE "topup_requests" ADD CONSTRAINT "topup_requests_user_id_fkey" FOREIG
 ALTER TABLE "topup_requests" ADD CONSTRAINT "topup_requests_payment_account_id_fkey" FOREIGN KEY ("payment_account_id") REFERENCES "payment_accounts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "product_numbers" ADD CONSTRAINT "product_numbers_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -525,6 +583,9 @@ ALTER TABLE "purchased_numbers" ADD CONSTRAINT "purchased_numbers_order_item_id_
 
 -- AddForeignKey
 ALTER TABLE "purchased_numbers" ADD CONSTRAINT "purchased_numbers_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchased_numbers" ADD CONSTRAINT "purchased_numbers_product_number_id_fkey" FOREIGN KEY ("product_number_id") REFERENCES "product_numbers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "otp_messages" ADD CONSTRAINT "otp_messages_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

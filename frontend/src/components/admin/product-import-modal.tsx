@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { toast } from "sonner";
-import { FileSpreadsheet, Upload, CheckCircle2, ChevronLeft } from "lucide-react";
+import { FileSpreadsheet, Upload, CheckCircle2, ChevronLeft, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -164,7 +164,7 @@ export function ProductImportModal({
   return (
     <>
       <Modal
-        title="Add Product"
+        title="Import Numbers"
         onClose={onClose}
         maxWidth="2xl"
       >
@@ -318,11 +318,17 @@ export function ProductImportModal({
                   </>
                 )}
               </button>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  Numbers must be international (e.g. +12025551234) and match
-                  the country code. Endpoints must be HTTPS URLs.
+              <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="leading-relaxed">
+                  Use one international number per row (e.g. +12025551234).
+                  Endpoints should be provider webhook URLs that return the OTP
+                  message. Our system will proxy those requests through your
+                  account and mask the provider details from end users.
                 </span>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
                 <button
                   type="button"
                   onClick={downloadTemplate}

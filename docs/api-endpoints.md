@@ -584,7 +584,7 @@ Returns the latest USD-based exchange rates cached from `https://open.er-api.com
 
 * Rates are refreshed by a background job (`sync-exchange-rates`) every 6–12 hours.
 * If the external API is unreachable or returns `result !== "success"`, the last known rates are returned and a warning is logged.
-* Prices are stored and charged in PKR and displayed converted into the selected currency at runtime; converted prices are never stored.
+* Ledger amounts (wallet, orders, top-ups, refunds) are stored in PKR. Product prices are stored in their own currency (USD by default) and converted to PKR when charged; all display conversions happen at runtime and are never stored.
 
 **Top-up requests**
 

@@ -17,7 +17,56 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
   }
 }
 
-async function fetchOtpFromProvider(
+/**
+ * Converts a provider response body into the SMS text and OTP code.
+ * Plain text is treated as the message with the code extracted from it.
+ * JSON bodies (e.g. the SMS8 record API `{code, msg, data:{code,...}}`) use the
+ * structured `data.code` field and never regex-scan dates/ids in the JSON, which
+ * otherwise produces wrong codes such as the year from `expired_date`.
+ * `data.code` may embed the code inside surrounding text, so a single digit token
+ * is extracted instead of joining every digit run (which would concatenate
+ * "87190, id 294" into "87190294").
+ */
+function parseProviderBody(
+  body: string
+): { sms: string; code: string | null } | null {
+  const trimmed = body.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      return null; // malformed JSON - keep waiting rather than guess at a code
+    }
+
+    const record = (parsed ?? {}) as Record<string, unknown>;
+    const data = record.data;
+    const dataCode =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? (data as Record<string, unknown>).code
+        : undefined;
+
+    let code: string | null = null;
+    if (typeof dataCode === "string") {
+      code = extractOtp(dataCode);
+    } else if (typeof dataCode === "number" && Number.isFinite(dataCode)) {
+      const digits = String(dataCode).replace(/\D/g, "");
+      if (digits.length >= 4 && digits.length <= 8) code = digits;
+    }
+
+    // The provider explicitly reports no verification code yet - stay waiting.
+    if (!code) return null;
+
+    const msg = typeof record.msg === "string" && record.msg.trim() ? record.msg : body;
+    return { sms: msg, code };
+  }
+
+  return { sms: body, code: extractOtp(body) };
+}
+
+export async function fetchOtpFromProvider(
   endpoint: string,
   phoneNumber: string,
   purchasedNumberId: string,
@@ -37,26 +86,26 @@ async function fetchOtpFromProvider(
   }
 
   const rawMessage = await response.text();
-  if (!rawMessage.trim()) return null;
+  const parsed = parseProviderBody(rawMessage);
+  if (!parsed) return null;
 
-  const messageHash = hashMessage(phoneNumber, rawMessage);
+  const messageHash = hashMessage(phoneNumber, parsed.sms);
   const existing = await numberRepository.findByMessageHash(messageHash);
   if (existing) return null;
 
-  const otpCode = extractOtp(rawMessage);
   try {
     await numberRepository.createOtpMessage({
       userId,
       purchasedNumberId,
       service,
-      rawMessage,
-      otpCode,
+      rawMessage: parsed.sms,
+      otpCode: parsed.code,
       messageHash,
     });
   } catch {
     return null; // unique hash conflict - a concurrent request saved it first
   }
-  return { otpCode, rawMessage };
+  return { otpCode: parsed.code, rawMessage: parsed.sms };
 }
 
 function serializeMessage(message: {
@@ -106,23 +155,33 @@ export async function getOtpByNumber(userId: string, numberId: string) {
     };
   }
 
-  if (purchased.product?.source === "IMPORTED" && purchased.productNumber) {
-    const result = await fetchOtpFromProvider(
-      purchased.productNumber.providerEndpoint,
-      purchased.phoneNumber,
-      purchased.id,
-      userId,
-      purchased.product.service ?? null
-    );
-    if (result) {
-      otpCount += 1;
-      status = "RECEIVED";
+  if (purchased.product?.source === "IMPORTED") {
+    // Resolve the provider endpoint from the relation, or from the inventory
+    // number directly when the purchased record is missing its link — otherwise
+    // an imported number would silently wait forever with no OTP source.
+    const productNumber =
+      purchased.productNumber ??
+      (await numberRepository.findProductNumberByPhoneNumber(purchased.phoneNumber));
+    const endpoint = productNumber?.providerEndpoint;
+
+    if (endpoint) {
+      const result = await fetchOtpFromProvider(
+        endpoint,
+        purchased.phoneNumber,
+        purchased.id,
+        userId,
+        purchased.product.service ?? null
+      );
+      if (result) {
+        otpCount += 1;
+        status = "RECEIVED";
+      }
+      await numberRepository.updateStatus(purchased.id, {
+        status: otpCount > 0 ? "RECEIVED" : (purchased.status as NumberStatus),
+        otpCount,
+        lastCheckedAt: new Date(),
+      });
     }
-    await numberRepository.updateStatus(purchased.id, {
-      status: otpCount > 0 ? "RECEIVED" : (purchased.status as NumberStatus),
-      otpCount,
-      lastCheckedAt: new Date(),
-    });
   } else {
     const synced = await syncNumberOtps(purchased);
     otpCount = synced.newOtpCount;

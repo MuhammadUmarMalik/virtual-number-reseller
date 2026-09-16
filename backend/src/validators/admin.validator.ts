@@ -41,3 +41,27 @@ export const updateNumberSchema = z.object({
   canGetAnotherSms: z.boolean().nullable().optional(),
   otpCount: z.number().int().min(0).optional(),
 });
+
+export const updateProductNumberSchema = z
+  .object({
+    number: z
+      .string()
+      .trim()
+      .refine(
+        (v) => v === "" || /^\+[1-9]\d{6,14}$/.test(v),
+        "Use international format, e.g. +12025550123"
+      )
+      .optional(),
+    providerEndpoint: z
+      .string()
+      .trim()
+      .refine(
+        (v) => v === "" || /^https:\/\/.+/.test(v),
+        "Provider endpoint must be an HTTPS URL"
+      )
+      .optional(),
+  })
+  .refine(
+    (data) => data.number !== undefined || data.providerEndpoint !== undefined,
+    { message: "Provide a phone number or an endpoint to update" }
+  );

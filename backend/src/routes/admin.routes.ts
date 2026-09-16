@@ -15,6 +15,7 @@ import {
   updateUserRoleSchema,
   updateUserProfileSchema,
   updateNumberSchema,
+  updateProductNumberSchema,
   walletAdjustmentSchema,
   settingsSchema,
 } from "../validators/admin.validator.js";
@@ -85,6 +86,15 @@ router.delete("/payment-accounts/:accountId", adminController.deletePaymentAccou
 
 router.get("/products", adminController.listProducts);
 router.get("/products/:productId/numbers", adminController.listProductNumbers);
+router.patch(
+  "/products/:productId/numbers/:numberId",
+  validate(updateProductNumberSchema),
+  adminController.updateProductNumber
+);
+router.delete(
+  "/products/:productId/numbers/:numberId",
+  adminController.deleteProductNumber
+);
 router.get("/products/vendor-stock", adminController.getVendorStock);
 router.post("/products/:productId/sync-stock", adminController.syncProductStock);
 router.post("/products/import/preview", uploadSpreadsheet.single("file"), validate(importProductSchema), importController.preview);

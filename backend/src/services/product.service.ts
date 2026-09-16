@@ -1,5 +1,6 @@
-import { Prisma } from "@prisma/client";
+import { prisma } from "../config/database.js";
 import { productRepository } from "../repositories/product.repository.js";
+import { createAuditLog } from "./audit.service.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import type { ProductListParams } from "../repositories/product.repository.js";
@@ -31,7 +32,7 @@ export const productService = {
 
   async getById(productId: string) {
     const product = await productRepository.findById(productId);
-    if (!product) {
+    if (!product || product.deletedAt) {
       throw new AppError("Product not found", 404);
     }
     return serializeProduct(product);
@@ -73,26 +74,53 @@ export const productService = {
     return serializeProduct(product);
   },
 
-  async remove(productId: string) {
+  async remove(productId: string, adminId: string) {
     const existing = await productRepository.findById(productId);
     if (!existing) {
       throw new AppError("Product not found", 404);
     }
-    try {
-      await productRepository.delete(productId);
-    } catch (error) {
-      const isFkViolation =
-        (error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2003") ||
-        (error instanceof Prisma.PrismaClientUnknownRequestError &&
-          /foreign key|restrict|23001/i.test(error.message));
-      if (isFkViolation) {
-        throw new AppError(
-          "This product has existing orders and cannot be deleted. Disable it instead.",
-          409
-        );
-      }
-      throw error;
+    if (existing.deletedAt) {
+      throw new AppError("Product has already been deleted", 409);
     }
+
+    const [orderItems, purchasedNumbers, importedNumbers] = await Promise.all([
+      prisma.orderItem.count({ where: { productId } }),
+      prisma.purchasedNumber.count({ where: { productId } }),
+      prisma.productNumber.count({ where: { productId } }),
+    ]);
+
+    // A product with no history can be removed outright. Once anything has
+    // been sold the record must stay for order/refund accounting, so hide it
+    // instead of deleting its numbers and financial references.
+    if (orderItems === 0 && purchasedNumbers === 0 && importedNumbers === 0) {
+      await productRepository.delete(productId);
+      await createAuditLog(prisma, {
+        adminId,
+        action: "PRODUCT_DELETE",
+        entityType: "Product",
+        entityId: productId,
+        newValue: { softDelete: false },
+      });
+      return { softDelete: false };
+    }
+
+    await productRepository.update(productId, {
+      deletedAt: new Date(),
+      status: "INACTIVE",
+      availableStock: 0,
+      // Free the unique name/slug so the product can be re-created.
+      name: `deleted_${productId}`,
+      slug: `deleted-${productId}`,
+    });
+
+    await createAuditLog(prisma, {
+      adminId,
+      action: "PRODUCT_DELETE",
+      entityType: "Product",
+      entityId: productId,
+      newValue: { softDelete: true, name: existing.name },
+    });
+
+    return { softDelete: true };
   },
 };

@@ -17,6 +17,50 @@ function toString(value: { toString(): string }): string {
   return value.toString();
 }
 
+// Ledger money (wallet, order totals, refunds) is kept in PKR, while product
+// prices are stored in their own `Product.currency` (USD for vendor-sourced
+// products). Convert the selling price into the ledger currency so the wallet
+// debit charges the same currency users top up in.
+async function priceToLedger(
+  amount: Prisma.Decimal | string | number,
+  fromCurrency?: string | null
+): Promise<Prisma.Decimal> {
+  const LEDGER_CURRENCY = "PKR";
+  const source = fromCurrency ?? "USD";
+  if (source === LEDGER_CURRENCY) {
+    return new Prisma.Decimal(amount.toString());
+  }
+
+  const pkr = await prisma.exchangeRate.findUnique({
+    where: { currency: LEDGER_CURRENCY },
+  });
+  if (!pkr || pkr.rate.lte(0)) {
+    throw new AppError(
+      "Exchange rates are unavailable — unable to price this product. Try again later.",
+      503
+    );
+  }
+
+  // ER-API rates are per 1 USD (rate["PKR"] ≈ 280), so convert via USD.
+  let amountUsd = new Prisma.Decimal(amount.toString());
+  if (source !== "USD") {
+    const sourceRate = await prisma.exchangeRate.findUnique({
+      where: { currency: source },
+    });
+    if (!sourceRate || sourceRate.rate.lte(0)) {
+      throw new AppError(
+        "Exchange rates are unavailable — unable to price this product. Try again later.",
+        503
+      );
+    }
+    amountUsd = amountUsd.div(sourceRate.rate);
+  }
+
+  return amountUsd
+    .mul(pkr.rate)
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
 interface SerializedOrderItem {
   id: string;
   orderId: string;
@@ -173,7 +217,7 @@ export const orderService = {
     }
 
     const quantity = input.quantity;
-    const unitPrice = new Prisma.Decimal(product.sellingPrice.toString());
+    const unitPrice = await priceToLedger(product.sellingPrice, product.currency);
     const total = unitPrice.mul(quantity);
     const subtotal = total;
 

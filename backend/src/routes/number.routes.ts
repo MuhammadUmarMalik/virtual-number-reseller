@@ -13,6 +13,7 @@ numberRoutes.post("/:numberId/check-otp", otpLimiter, numberController.checkOtp)
 numberRoutes.post("/:numberId/cancel", otpLimiter, numberController.cancel);
 numberRoutes.post("/:numberId/retry", otpLimiter, numberController.retry);
 numberRoutes.get("/:numberId/otp", otpLimiter, numberController.getOtp);
+numberRoutes.post("/:numberId/refund", numberController.requestRefund);
 
 export const otpRoutes = Router();
 otpRoutes.use(authenticate);
