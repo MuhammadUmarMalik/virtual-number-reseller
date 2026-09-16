@@ -62,7 +62,7 @@ export default function AdminDashboardPage() {
         <StatCard
           title="Net Profit"
           value={formatPrice(data.profit)}
-          hint="Purchases − Refunds − Cost"
+          hint="Purchases − Cost"
           icon={<TrendingUp className="h-5 w-5" />}
         />
         <StatCard title="Imported Stock" value={data.importedAvailableStock} icon={<Package className="h-5 w-5" />} />

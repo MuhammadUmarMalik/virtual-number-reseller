@@ -135,7 +135,7 @@ export const adminService = {
       totalPurchases: toString(totalPurchases),
       totalRefunds: toString(totalRefunds),
       purchaseCost: toString(purchaseCost),
-      profit: toString(totalPurchases.sub(totalRefunds).sub(purchaseCost)),
+      profit: toString(totalPurchases.sub(purchaseCost)),
       importedAvailableStock,
       smsbowerAvailableStock,
       availableStock: importedAvailableStock + smsbowerAvailableStock,
