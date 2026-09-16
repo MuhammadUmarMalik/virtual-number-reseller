@@ -69,6 +69,9 @@ export interface AdminDashboardData {
   pendingRefunds: number;
   totalDeposits: string;
   totalPurchases: string;
+  totalRefunds: string;
+  purchaseCost: string;
+  profit: string;
   importedAvailableStock: number;
   smsbowerAvailableStock: number;
   availableStock: number;

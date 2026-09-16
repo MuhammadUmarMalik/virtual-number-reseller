@@ -3,9 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
+  Coins,
   DollarSign,
   Package,
   Receipt,
+  TrendingUp,
+  Undo2,
   Users,
   Wallet,
 } from "lucide-react";
@@ -48,7 +51,20 @@ export default function AdminDashboardPage() {
         <StatCard title="Pending Top-Ups" value={data.pendingTopups} icon={<Wallet className="h-5 w-5" />} />
         <StatCard title="Pending Refunds" value={data.pendingRefunds} icon={<Receipt className="h-5 w-5" />} />
         <StatCard title="Total Deposits" value={formatPrice(data.totalDeposits)} icon={<DollarSign className="h-5 w-5" />} />
-        <StatCard title="Total Purchases" value={formatPrice(data.totalPurchases)} icon={<BookOpen className="h-5 w-5" />} />
+        <StatCard
+          title="Total Purchases"
+          value={formatPrice(data.totalPurchases)}
+          hint="Completed orders only"
+          icon={<BookOpen className="h-5 w-5" />}
+        />
+        <StatCard title="Total Cost" value={formatPrice(data.purchaseCost)} hint="Completed orders only" icon={<Coins className="h-5 w-5" />} />
+        <StatCard title="Total Refunds" value={formatPrice(data.totalRefunds)} icon={<Undo2 className="h-5 w-5" />} />
+        <StatCard
+          title="Net Profit"
+          value={formatPrice(data.profit)}
+          hint="Purchases − Refunds − Cost"
+          icon={<TrendingUp className="h-5 w-5" />}
+        />
         <StatCard title="Imported Stock" value={data.importedAvailableStock} icon={<Package className="h-5 w-5" />} />
         <StatCard title="SMSBower Stock" value={data.smsbowerAvailableStock} icon={<Package className="h-5 w-5" />} />
       </div>

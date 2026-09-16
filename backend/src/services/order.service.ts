@@ -21,7 +21,7 @@ function toString(value: { toString(): string }): string {
 // prices are stored in their own `Product.currency` (USD for vendor-sourced
 // products). Convert the selling price into the ledger currency so the wallet
 // debit charges the same currency users top up in.
-async function priceToLedger(
+export async function priceToLedger(
   amount: Prisma.Decimal | string | number,
   fromCurrency?: string | null
 ): Promise<Prisma.Decimal> {

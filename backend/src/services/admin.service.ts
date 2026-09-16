@@ -11,6 +11,7 @@ import { productRepository } from "../repositories/product.repository.js";
 import { productNumberRepository } from "../repositories/product-number.repository.js";
 import { createAuditLog, createNotification } from "./audit.service.js";
 import { creditWallet, debitWallet } from "./wallet-ops.js";
+import { priceToLedger } from "./order.service.js";
 import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.js";
 import { smsbowerActivationService } from "./smsbower-activation.service.js";
 import { AppError } from "../utils/app-error.js";
@@ -65,8 +66,10 @@ export const adminService = {
       pendingRefunds,
       totalDepositsAgg,
       totalPurchasesAgg,
+      totalRefundsAgg,
       importedAvailableStock,
       smsbowerStockAgg,
+      purchaseCostByCurrency,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.order.count(),
@@ -76,9 +79,15 @@ export const adminService = {
         _sum: { amount: true },
         where: { type: "DEPOSIT" },
       }),
+      // Completed orders only: refunded and failed purchases are revenue that
+      // never stuck, so they are excluded from total purchases.
+      prisma.order.aggregate({
+        _sum: { total: true },
+        where: { status: "COMPLETED" },
+      }),
       prisma.walletTransaction.aggregate({
         _sum: { amount: true },
-        where: { type: "PURCHASE" },
+        where: { type: "REFUND" },
       }),
       prisma.productNumber.count({
         where: {
@@ -90,9 +99,32 @@ export const adminService = {
         _sum: { availableStock: true },
         where: { source: "VENDOR", vendor: "SMSBOWER" },
       }),
+      prisma.purchasedNumber.groupBy({
+        by: ["currency"],
+        where: { order: { status: "COMPLETED" }, vendorCost: { not: null } },
+        _sum: { vendorCost: true },
+      }),
     ]);
 
     const smsbowerAvailableStock = smsbowerStockAgg._sum.availableStock ?? 0;
+
+    // Cost of goods sold: vendor costs are stored in the product currency
+    // (usually USD), so each currency group is converted to the ledger (PKR).
+    // If exchange rates are unavailable, that currency is left out of COGS
+    // rather than blocking the whole dashboard.
+    let purchaseCost = new Prisma.Decimal(0);
+    for (const group of purchaseCostByCurrency) {
+      const sum = group._sum.vendorCost;
+      if (!sum) continue;
+      try {
+        purchaseCost = purchaseCost.add(await priceToLedger(sum, group.currency));
+      } catch {
+        // Exchange rates not ready yet — omit this currency from COGS.
+      }
+    }
+
+    const totalPurchases = totalPurchasesAgg._sum.total ?? new Prisma.Decimal(0);
+    const totalRefunds = totalRefundsAgg._sum.amount ?? new Prisma.Decimal(0);
 
     return {
       totalUsers,
@@ -100,7 +132,10 @@ export const adminService = {
       pendingTopups,
       pendingRefunds,
       totalDeposits: toString(totalDepositsAgg._sum.amount ?? new Prisma.Decimal(0)),
-      totalPurchases: toString(totalPurchasesAgg._sum.amount ?? new Prisma.Decimal(0)),
+      totalPurchases: toString(totalPurchases),
+      totalRefunds: toString(totalRefunds),
+      purchaseCost: toString(purchaseCost),
+      profit: toString(totalPurchases.sub(totalRefunds).sub(purchaseCost)),
       importedAvailableStock,
       smsbowerAvailableStock,
       availableStock: importedAvailableStock + smsbowerAvailableStock,
