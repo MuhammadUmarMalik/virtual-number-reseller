@@ -46,3 +46,35 @@ export const webhookLimiter = rateLimit({
     res.status(429).json(errorResponse(tooMany));
   },
 });
+
+// Money-drawing endpoints are rate limited so a single client cannot hammer
+// the wallet or the vendor API (which allocates paid numbers per order).
+export const orderLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json(errorResponse(tooMany));
+  },
+});
+
+export const refundLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json(errorResponse(tooMany));
+  },
+});
+
+export const topupLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json(errorResponse(tooMany));
+  },
+});

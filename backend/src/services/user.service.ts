@@ -5,6 +5,7 @@ import { userRepository } from "../repositories/user.repository.js";
 import { sessionRepository } from "../repositories/session.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
+import { assertNotDisposableEmail } from "../utils/disposable-emails.js";
 import type { AuthUser } from "../types/common.types.js";
 import type {
   ChangePasswordInput,
@@ -34,6 +35,7 @@ export const userService = {
     }
 
     if (input.email && input.email !== user.email) {
+      assertNotDisposableEmail(input.email);
       const existing = await userRepository.findByEmail(input.email);
       if (existing && existing.id !== userId) {
         throw new AppError("Email is already in use", 409);
@@ -69,6 +71,10 @@ export const userService = {
 
     const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);
     await userRepository.update(userId, { passwordHash });
+
+    // Revoke every existing refresh-token session so a leaked/old cookie cannot
+    // keep working after a password rotation.
+    await sessionRepository.deleteManyByUser(userId);
   },
 
   async getSessions(userId: string, currentSessionId?: string) {

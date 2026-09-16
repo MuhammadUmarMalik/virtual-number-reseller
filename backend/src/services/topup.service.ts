@@ -32,11 +32,22 @@ export const topupService = {
     const minSetting = await prisma.appSetting.findUnique({
       where: { key: "min_topup_amount" },
     });
-    const minAmount = minSetting?.value
-      ? new Prisma.Decimal(minSetting.value)
-      : new Prisma.Decimal(100);
-    if (new Prisma.Decimal(input.amount.toString()).lt(minAmount)) {
+    let minAmount: Prisma.Decimal;
+    try {
+      minAmount = minSetting?.value
+        ? new Prisma.Decimal(minSetting.value)
+        : new Prisma.Decimal(100);
+    } catch {
+      // Malformed setting value must not turn into a 500.
+      minAmount = new Prisma.Decimal(100);
+    }
+    if (minAmount.lte(0)) minAmount = new Prisma.Decimal(100);
+    const requestAmount = new Prisma.Decimal(input.amount.toString());
+    if (requestAmount.lt(minAmount)) {
       throw new AppError(`Minimum top-up amount is Rs. ${minAmount.toString()}`, 400);
+    }
+    if (requestAmount.gt(new Prisma.Decimal(1_000_000))) {
+      throw new AppError("Top-up amount is too large", 400);
     }
 
     const transactionId = input.transactionId?.trim() || generateCode("TXN");

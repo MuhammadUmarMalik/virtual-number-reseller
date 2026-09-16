@@ -13,20 +13,19 @@ function secretsMatch(a: string, b: string): boolean {
 
 export const smsbowerWebhookController = {
   handleWebhook: asyncHandler(async (req: Request, res: Response) => {
+    // The webhook writes OTP codes onto real numbers, so a secret is required
+    // in every environment — never fall open in dev/staging.
     const failClosed =
-      !env.smsbowerWebhookEnabled ||
-      (env.nodeEnv === "production" && !env.smsbowerWebhookSecret);
+      !env.smsbowerWebhookEnabled || !env.smsbowerWebhookSecret;
     if (failClosed) {
       res.status(404).json(errorResponse("Not found"));
       return;
     }
 
-    if (env.smsbowerWebhookSecret) {
-      const headerSecret = req.get("x-smsbower-secret") ?? req.get("x-webhook-secret");
-      if (!headerSecret || !secretsMatch(headerSecret, env.smsbowerWebhookSecret)) {
-        res.status(401).json(errorResponse("Unauthorized"));
-        return;
-      }
+    const headerSecret = req.get("x-smsbower-secret") ?? req.get("x-webhook-secret");
+    if (!headerSecret || !secretsMatch(headerSecret, env.smsbowerWebhookSecret)) {
+      res.status(401).json(errorResponse("Unauthorized"));
+      return;
     }
 
     const { activationId, service, text, code, country, receivedAt } = req.body as {

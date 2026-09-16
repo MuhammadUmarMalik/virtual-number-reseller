@@ -5,6 +5,7 @@ import { SMSBOWER_SET_STATUS } from "../integrations/vendor/smsbower/smsbower.ty
 import { numberRepository } from "../repositories/number.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { extractOtp, hashMessage } from "../utils/otp-parser.js";
+import { logger } from "../config/logger.js";
 import { createNotification } from "./audit.service.js";
 import { creditWallet } from "./wallet-ops.js";
 
@@ -110,7 +111,15 @@ export const smsbowerActivationService = {
       throw new AppError("Number is no longer active", 400);
     }
 
-    await smsbowerClient.setStatus(number.vendorActivationId, SMSBOWER_SET_STATUS.CANCEL);
+    // Best-effort: tell the vendor to cancel. If the API rejects the request
+    // (e.g. action not supported), proceed with local cleanup anyway — the DB
+    // is the source of truth for wallet balances and number status.
+    try {
+      await smsbowerClient.setStatus(number.vendorActivationId, SMSBOWER_SET_STATUS.CANCEL);
+    } catch (vendorError) {
+      logger.warn(`Vendor cancel failed for activation ${number.vendorActivationId}`, vendorError);
+    }
+
     const now = new Date();
 
     // Claim the transition inside a transaction so a concurrent cancel or an
@@ -205,6 +214,12 @@ export const smsbowerActivationService = {
   }) {
     const number = await numberRepository.findByActivationId(payload.activationId);
     if (!number) throw new AppError("Activation not found", 404);
+
+    // A late OTP for an already-cancelled/refunded number must not resurrect it
+    // or pollute the history — the money was already returned.
+    if (["CANCELLED", "REFUNDED", "EXPIRED", "DISABLED"].includes(number.status)) {
+      return { saved: false, reason: "number-not-active" };
+    }
 
     const rawMessage = payload.text;
     const otpCode = payload.code ?? extractOtp(rawMessage);

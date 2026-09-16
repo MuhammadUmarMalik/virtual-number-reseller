@@ -25,14 +25,14 @@ function schedule(name: string, intervalMs: number, task: () => Promise<void>) {
 export async function startJobs() {
   if (env.nodeEnv === "test") return;
 
-  const pollingSetting = await settingsService.get("otp_polling_interval");
-  const pollingSeconds = Number(pollingSetting);
-  const pollingIntervalMs =
-    Number.isFinite(pollingSeconds) && pollingSeconds > 0
-      ? pollingSeconds * 1000
+  const pollingSetting = await settingsService.get("otp_polling_interval_ms");
+  const pollingIntervalMs = Number(pollingSetting);
+  const scheduledPollingMs =
+    Number.isFinite(pollingIntervalMs) && pollingIntervalMs > 0
+      ? pollingIntervalMs
       : env.otpPollingIntervalMs;
 
-  schedule("otp-polling", pollingIntervalMs, runOtpPolling);
+  schedule("otp-polling", scheduledPollingMs, runOtpPolling);
   schedule("expire-numbers", env.expireNumbersIntervalMs, runExpireNumbers);
   schedule("vendor-sync", env.vendorSyncIntervalMs, runVendorSync);
   schedule(

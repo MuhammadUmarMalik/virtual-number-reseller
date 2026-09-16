@@ -20,10 +20,10 @@ const SETTING_FIELDS: Array<{
   key: string;
   label: string;
 }> = [
-  { key: "minimum_topup_amount", label: "Minimum Top-Up Amount" },
+  { key: "min_topup_amount", label: "Minimum Top-Up Amount" },
   { key: "admin_whatsapp_number", label: "Admin WhatsApp Number" },
-  { key: "support_whatsapp_number", label: "Support WhatsApp Number" },
-  { key: "otp_polling_interval", label: "OTP Polling Interval (minutes)" },
+  { key: "support_whatsapp", label: "Support WhatsApp Number" },
+  { key: "otp_polling_interval_ms", label: "OTP Polling Interval (ms)" },
 ];
 
 export default function AdminSettingsPage() {

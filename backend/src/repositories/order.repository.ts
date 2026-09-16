@@ -73,6 +73,7 @@ export const orderRepository = {
     subtotal: Prisma.Decimal;
     total: Prisma.Decimal;
     status: OrderStatus;
+    idempotencyKey?: string | null;
     items: Array<{
       productId: string;
       quantity: number;
@@ -88,6 +89,7 @@ export const orderRepository = {
         subtotal: data.subtotal,
         total: data.total,
         status: data.status,
+        idempotencyKey: data.idempotencyKey,
         completedAt: data.status === "COMPLETED" ? new Date() : null,
         items: {
           create: data.items.map((item) => ({

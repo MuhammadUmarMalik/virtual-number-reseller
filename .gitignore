@@ -50,7 +50,7 @@ claude.md
 .claude/*
 
 #ignore md files 
-
+audit.md
 git.md
 prompts.md
 agents.md

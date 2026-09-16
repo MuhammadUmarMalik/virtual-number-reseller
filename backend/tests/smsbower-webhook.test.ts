@@ -69,6 +69,18 @@ describe("smsbower webhook controller", () => {
     expect(processWebhookMock).not.toHaveBeenCalled();
   });
 
+  it("never falls open in development when no secret is configured", async () => {
+    envMock.nodeEnv = "development";
+    envMock.smsbowerWebhookSecret = "";
+    const { state, res } = makeRes();
+    await smsbowerWebhookController.handleWebhook(
+      makeReq({ activationId: "1", text: "code 1234" }),
+      res
+    );
+    expect(state.statusCode).toBe(404);
+    expect(processWebhookMock).not.toHaveBeenCalled();
+  });
+
   it("rejects requests with a missing secret header", async () => {
     envMock.smsbowerWebhookSecret = "top-secret";
     const { state, res } = makeRes();
@@ -102,13 +114,18 @@ describe("smsbower webhook controller", () => {
   });
 
   it("ignores malformed payloads but still returns 200", async () => {
+    envMock.smsbowerWebhookSecret = "top-secret";
     const { state, res } = makeRes();
-    await smsbowerWebhookController.handleWebhook(makeReq({}), res);
+    await smsbowerWebhookController.handleWebhook(
+      makeReq({}, { "x-smsbower-secret": "top-secret" }),
+      res
+    );
     expect(state.statusCode).toBe(200);
     expect(processWebhookMock).not.toHaveBeenCalled();
   });
 
   it("forwards a valid payload and reports ok", async () => {
+    envMock.smsbowerWebhookSecret = "top-secret";
     const { state, res } = makeRes();
     const payload = {
       activationId: "555",
@@ -118,16 +135,20 @@ describe("smsbower webhook controller", () => {
       country: "US",
       receivedAt: "2026-09-13T10:00:00Z",
     };
-    await smsbowerWebhookController.handleWebhook(makeReq(payload), res);
+    await smsbowerWebhookController.handleWebhook(
+      makeReq(payload, { "x-smsbower-secret": "top-secret" }),
+      res
+    );
     expect(processWebhookMock).toHaveBeenCalledWith(payload);
     expect(state.statusCode).toBe(200);
   });
 
   it("does not leak internal errors and still returns 200", async () => {
+    envMock.smsbowerWebhookSecret = "top-secret";
     processWebhookMock.mockRejectedValueOnce(new Error("boom"));
     const { state, res } = makeRes();
     await smsbowerWebhookController.handleWebhook(
-      makeReq({ activationId: "1", text: "code 1234" }),
+      makeReq({ activationId: "1", text: "code 1234" }, { "x-smsbower-secret": "top-secret" }),
       res
     );
     expect(state.statusCode).toBe(200);

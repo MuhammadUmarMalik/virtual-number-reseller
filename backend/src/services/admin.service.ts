@@ -14,6 +14,7 @@ import { creditWallet, debitWallet } from "./wallet-ops.js";
 import { priceToLedger } from "./order.service.js";
 import { smsbowerClient } from "../integrations/vendor/smsbower/smsbower.client.js";
 import { smsbowerActivationService } from "./smsbower-activation.service.js";
+import { remainingCreditableForOrder } from "./refund.service.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import { normalizePhoneNumber, isValidE164Number, matchesDialCode } from "../utils/phone.js";
@@ -161,9 +162,23 @@ export const adminService = {
   },
 
   async updateUserStatus(userId: string, status: string, adminId: string) {
+    if (userId === adminId) {
+      throw new AppError("You cannot change your own status", 400);
+    }
+
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError("User not found", 404);
+    }
+
+    // Never lock the platform out of its last active administrator.
+    if (user.role === "ADMIN" && status !== "ACTIVE") {
+      const activeAdmins = await prisma.user.count({
+        where: { role: "ADMIN", status: "ACTIVE", deletedAt: null },
+      });
+      if (activeAdmins <= 1) {
+        throw new AppError("Cannot suspend the last active admin", 400);
+      }
     }
 
     const updated = await userRepository.update(userId, {
@@ -183,9 +198,23 @@ export const adminService = {
   },
 
   async updateUserRole(userId: string, role: string, adminId: string) {
+    if (userId === adminId) {
+      throw new AppError("You cannot change your own role", 400);
+    }
+
     const user = await userRepository.findById(userId);
     if (!user) {
       throw new AppError("User not found", 404);
+    }
+
+    // Do not let the platform drop below a single administrator.
+    if (role !== "ADMIN" && user.role === "ADMIN") {
+      const admins = await prisma.user.count({
+        where: { role: "ADMIN", deletedAt: null },
+      });
+      if (admins <= 1) {
+        throw new AppError("Cannot demote the last admin", 400);
+      }
     }
 
     const updated = await userRepository.update(userId, {
@@ -900,11 +929,19 @@ export const adminService = {
       throw new AppError("A refund request already exists for this order", 409);
     }
 
+    // Cap an admin refund at whatever has not already been credited (cancels,
+    // previous approved refunds) so the order total can never be exceeded.
+    const remaining = await remainingCreditableForOrder(prisma, orderId, order.userId);
+    if (remaining.lte(0)) {
+      throw new AppError("This order has already been fully refunded", 400);
+    }
+    const amount = order.total.gt(remaining) ? remaining : order.total;
+
     const refund = await refundRepository.create({
       userId: order.userId,
       orderId,
       reason,
-      amount: order.total,
+      amount,
       status: "PENDING",
     });
 

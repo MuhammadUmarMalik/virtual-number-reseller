@@ -7,6 +7,7 @@ import { env } from "../config/env.js";
 import { userRepository } from "../repositories/user.repository.js";
 import { sessionRepository } from "../repositories/session.repository.js";
 import { AppError } from "../utils/app-error.js";
+import { assertNotDisposableEmail } from "../utils/disposable-emails.js";
 import type { AuthResponse, AuthTokens, AuthUser } from "../types/common.types.js";
 import type { SignInInput, SignUpInput } from "../validators/auth.validator.js";
 
@@ -51,6 +52,8 @@ async function issueTokens(user: User): Promise<AuthTokens> {
 
 export const authService = {
   async signUp(input: SignUpInput): Promise<AuthResponse> {
+    assertNotDisposableEmail(input.email);
+
     const existingEmail = await userRepository.findByEmail(input.email);
     if (existingEmail) {
       throw new AppError("Email is already registered", 409);

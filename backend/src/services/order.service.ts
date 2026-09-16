@@ -216,6 +216,20 @@ export const orderService = {
       throw new AppError("Insufficient stock", 400);
     }
 
+    // Idempotency: a retried request with the same key must not buy again.
+    if (input.idempotencyKey) {
+      const existingOrder = await prisma.order.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+      if (existingOrder) {
+        const existing = await orderRepository.findById(existingOrder.id);
+        if (existing && existing.userId === userId) {
+          return serializeOrder(existing);
+        }
+        throw new AppError("This order has already been placed", 409);
+      }
+    }
+
     const quantity = input.quantity;
     const unitPrice = await priceToLedger(product.sellingPrice, product.currency);
     const total = unitPrice.mul(quantity);
@@ -245,6 +259,15 @@ export const orderService = {
     let vendorNumbers: Array<{ phoneNumber: string; serial: number }> = [];
     const smsbowerActivations: SmsBowerActivation[] = [];
     if (isSmsbowerActivation) {
+      // Never allocate vendor numbers the wallet cannot pay for (the real debit
+      // happens inside the transaction below).
+      const wallet = await prisma.wallet.findUnique({ where: { userId } });
+      const balance = wallet
+        ? new Prisma.Decimal(wallet.balance.toString())
+        : new Prisma.Decimal(0);
+      if (balance.lt(total)) {
+        throw new AppError("Insufficient wallet balance", 400);
+      }
       try {
         for (let i = 0; i < quantity; i += 1) {
           smsbowerActivations.push(
@@ -269,6 +292,13 @@ export const orderService = {
           : new AppError("Unable to purchase a number right now", 503);
       }
     } else if (!isImported) {
+      const wallet = await prisma.wallet.findUnique({ where: { userId } });
+      const balance = wallet
+        ? new Prisma.Decimal(wallet.balance.toString())
+        : new Prisma.Decimal(0);
+      if (balance.lt(total)) {
+        throw new AppError("Insufficient wallet balance", 400);
+      }
       try {
         vendorNumbers = await vendorService.purchaseNumbers({
           projectId,
@@ -299,6 +329,7 @@ export const orderService = {
           subtotal,
           total,
           status: "COMPLETED",
+          idempotencyKey: input.idempotencyKey ?? null,
           items: [
             {
               productId: product.id,
@@ -397,10 +428,16 @@ export const orderService = {
           }
         }
 
-        await tx.product.update({
-          where: { id: product.id },
+        // Conditional decrement so concurrent orders cannot push stock negative
+        // or oversell against the same numbers (the imported path claims rows
+        // atomically above).
+        const stockClaim = await tx.product.updateMany({
+          where: { id: product.id, availableStock: { gte: quantity } },
           data: { availableStock: { decrement: quantity } },
         });
+        if (stockClaim.count !== 1) {
+          throw new AppError("Insufficient stock", 400);
+        }
 
         await createNotification(tx, {
           userId,

@@ -39,7 +39,11 @@ async function mutateWallet(
 
   // Concurrency safety: credits atomically increment; debits use a conditional
   // updateMany (balance >= amount) so concurrent debits cannot overspend the
-  // same funds. Both run inside the caller's transaction.
+  // same funds. Both run inside the caller's transaction. balanceAfter is read
+  // back from the atomic write and balanceBefore derived from it, so the audit
+  // record is exact even when another transaction commits between the read and
+  // the write above.
+  let balanceBefore: Prisma.Decimal;
   let balanceAfter: Prisma.Decimal;
   if (isCredit) {
     const updated = await tx.wallet.update({
@@ -47,6 +51,7 @@ async function mutateWallet(
       data: { balance: { increment: amount } },
     });
     balanceAfter = new Prisma.Decimal(updated.balance.toString());
+    balanceBefore = balanceAfter.sub(amount);
   } else {
     const result = await tx.wallet.updateMany({
       where: { id: wallet.id, balance: { gte: amount } },
@@ -59,6 +64,7 @@ async function mutateWallet(
       where: { id: wallet.id },
     });
     balanceAfter = new Prisma.Decimal(updated.balance.toString());
+    balanceBefore = balanceAfter.add(amount);
   }
 
   await tx.walletTransaction.create({
@@ -67,7 +73,7 @@ async function mutateWallet(
       userId: input.userId,
       type: input.type,
       amount,
-      balanceBefore: wallet.balance,
+      balanceBefore,
       balanceAfter,
       status: "COMPLETED",
       referenceType: input.referenceType,

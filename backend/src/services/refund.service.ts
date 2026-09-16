@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../config/database.js";
 import { refundRepository } from "../repositories/refund.repository.js";
 import { orderRepository } from "../repositories/order.repository.js";
@@ -7,6 +8,74 @@ import { creditWallet } from "./wallet-ops.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import type { CreateRefundInput } from "../validators/refund.validator.js";
+
+type Tx = Prisma.TransactionClient;
+
+// Total already credited against an order through every refund path — approved
+// refund requests plus automatic cancels that returned money because no OTP
+// arrived. Its own refund path and the cancel path are independent, so without
+// this reconciliation combining them could credit more than the order cost.
+async function sumCreditedForOrder(
+  client: Tx | typeof prisma,
+  orderId: string,
+  userId: string
+): Promise<Prisma.Decimal> {
+  const order = await (client as typeof prisma).order.findUnique({
+    where: { id: orderId },
+    include: { refunds: { select: { id: true } }, numbers: { select: { id: true } } },
+  });
+  if (!order) return new Prisma.Decimal(0);
+
+  const transactions = await (client as typeof prisma).walletTransaction.findMany({
+    where: {
+      userId,
+      type: "REFUND",
+      OR: [
+        { referenceType: "REFUND", referenceId: { in: order.refunds.map((r) => r.id) } },
+        { referenceType: "PURCHASED_NUMBER", referenceId: { in: order.numbers.map((n) => n.id) } },
+      ],
+    },
+    select: { amount: true },
+  });
+
+  return transactions.reduce(
+    (acc, txn) => acc.add(txn.amount),
+    new Prisma.Decimal(0)
+  );
+}
+
+// Remaining creditable amount for an order, capping every refund path at the
+// order total so a cancel plus a refund can never stack past what was paid.
+async function remainingCreditableForOrder(
+  client: Tx | typeof prisma,
+  orderId: string,
+  userId: string
+): Promise<Prisma.Decimal> {
+  const order = await (client as typeof prisma).order.findUnique({
+    where: { id: orderId },
+    select: { total: true },
+  });
+  if (!order) return new Prisma.Decimal(0);
+  const credited = await sumCreditedForOrder(client, orderId, userId);
+  return order.total.sub(credited);
+}
+
+async function assertRefundWithinRemaining(
+  client: Tx | typeof prisma,
+  orderId: string,
+  userId: string,
+  amount: Prisma.Decimal | string
+): Promise<void> {
+  const remaining = await remainingCreditableForOrder(client, orderId, userId);
+  if (new Prisma.Decimal(amount.toString()).gt(remaining)) {
+    throw new AppError(
+      `The maximum refundable amount for this order is Rs. ${remaining.toString()}`,
+      400
+    );
+  }
+}
+
+export { sumCreditedForOrder, remainingCreditableForOrder };
 
 function toString(value: { toString(): string }): string {
   return value.toString();
@@ -37,16 +106,45 @@ export const refundService = {
       throw new AppError("Only completed orders can be refunded", 400);
     }
 
+    // Same delivery gate the per-number path enforces: once an OTP code was
+    // delivered the service was rendered, and once every number is past its
+    // refund window there is nothing left to refund.
+    const numbers = order.numbers ?? [];
+    if (numbers.length === 0) {
+      throw new AppError("This order has no numbers to refund", 400);
+    }
+    const receivedCodes = await prisma.otpMessage.count({
+      where: { purchasedNumberId: { in: numbers.map((n) => n.id) }, otpCode: { not: null } },
+    });
+    if (receivedCodes > 0) {
+      throw new AppError(
+        "This order already received an OTP and cannot be refunded",
+        400
+      );
+    }
+    const now = Date.now();
+    if (numbers.every((n) => n.expiresAt && n.expiresAt.getTime() < now)) {
+      throw new AppError("The refund window for this order has passed", 400);
+    }
+
     const existing = await refundRepository.findByOrderId(input.orderId, userId);
     if (existing) {
       throw new AppError("A refund request already exists for this order", 409);
     }
 
+    // Reconcile against other credits (cancels, prior approved refunds): the
+    // order-level refund covers whatever has not already been returned.
+    const remaining = await remainingCreditableForOrder(prisma, order.id, userId);
+    if (remaining.lte(0)) {
+      throw new AppError("This order has already been fully refunded", 400);
+    }
+    const amount = order.total.gt(remaining) ? remaining : order.total;
+
     const refund = await refundRepository.create({
       userId,
       orderId: order.id,
       reason: input.reason,
-      amount: order.total,
+      amount,
     });
 
     await createNotification(prisma, {
@@ -98,11 +196,17 @@ export const refundService = {
       throw new AppError("Order not found", 404);
     }
 
+    // Refund only this number's share of the order, never the full total.
+    const amount = order.numbers.length > 0
+      ? order.total.div(order.numbers.length).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
+      : order.total;
+    await assertRefundWithinRemaining(prisma, order.id, userId, amount);
+
     const refund = await refundRepository.create({
       userId,
       orderId: order.id,
       reason: `No OTP received for imported number ${number.phoneNumber}`,
-      amount: order.total,
+      amount,
     });
 
     await createNotification(prisma, {
@@ -168,6 +272,10 @@ export const refundService = {
         throw new AppError("Only pending refunds can be approved", 400);
       }
 
+      // Reconcile the ledger before crediting: a cancel plus this approval must
+      // never stack past the order total.
+      await assertRefundWithinRemaining(tx, refund.orderId, refund.userId, refund.amount);
+
       const updated = await tx.refundRequest.findUnique({
         where: { id: refundId },
       });
@@ -184,6 +292,12 @@ export const refundService = {
 
       await tx.order.update({
         where: { id: refund.orderId },
+        data: { status: "REFUNDED" },
+      });
+
+      // Keep item status in sync with the numbers once their money is back.
+      await tx.orderItem.updateMany({
+        where: { orderId: refund.orderId },
         data: { status: "REFUNDED" },
       });
 

@@ -6,7 +6,7 @@ export const createOrderSchema = z.object({
     .number()
     .int("Quantity must be a whole number")
     .min(1, "Quantity must be at least 1")
-    .max(50, "Quantity must be at most 50"),
+    .max(10, "Quantity must be at most 10"),
 });
 
 export const createRefundSchema = z.object({

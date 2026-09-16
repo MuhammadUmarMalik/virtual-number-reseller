@@ -86,7 +86,11 @@ export async function syncNumberOtps(target: OtpSyncTarget) {
   }
 
   const newOtpCount = target.otpCount + savedCount;
-  const nextStatus: NumberStatus = newOtpCount > 0 ? "RECEIVED" : target.status as NumberStatus;
+  // Never resurrect a number whose money was already returned or that expired.
+  const TERMINAL_STATUSES = ["REFUNDED", "CANCELLED", "EXPIRED", "DISABLED"];
+  const nextStatus: NumberStatus = TERMINAL_STATUSES.includes(target.status)
+    ? target.status as NumberStatus
+    : (newOtpCount > 0 ? "RECEIVED" : target.status as NumberStatus);
 
   await numberRepository.updateStatus(target.id, {
     status: nextStatus,

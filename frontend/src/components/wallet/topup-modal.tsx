@@ -17,9 +17,6 @@ import {
 } from "@/schemas/topup.schema";
 import { createTopup, getPaymentAccounts } from "@/services/topup.service";
 
-const TOPUP_ACCOUNT_METHOD = "EASYPAISA";
-const TOPUP_WHATSAPP_NUMBER = "03062617205";
-
 interface TopupModalProps {
   onClose: () => void;
 }
@@ -35,12 +32,7 @@ export function TopupModal({ onClose }: TopupModalProps) {
     queryFn: getPaymentAccounts,
   });
 
-  const account =
-    accountsQuery.data?.find(
-      (acc) => acc.paymentMethod === TOPUP_ACCOUNT_METHOD
-    ) ??
-    accountsQuery.data?.[0] ??
-    null;
+  const account = accountsQuery.data?.[0] ?? null;
 
   // account is null only when the payment-accounts fetch errored or returned no active rows.
   const noAccountReady = !accountsQuery.isLoading && !account;
@@ -176,10 +168,8 @@ export function TopupModal({ onClose }: TopupModalProps) {
                         </span>
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        WhatsApp:{" "}
-                        <span className="font-mono font-medium text-foreground">
-                          {TOPUP_WHATSAPP_NUMBER}
-                        </span>
+                        Send the payment proof to the admin on WhatsApp after
+                        submitting your request.
                       </p>
                       {account.instructions && (
                         <p className="mt-2 text-xs text-muted-foreground">

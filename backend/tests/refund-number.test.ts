@@ -1,4 +1,12 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../src/config/database.js", () => ({
+  prisma: {
+    order: { findUnique: vi.fn() },
+    walletTransaction: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
 
 vi.mock("../src/repositories/number.repository.js", () => ({
   numberRepository: {
@@ -28,6 +36,7 @@ import { numberRepository } from "../src/repositories/number.repository.js";
 import { refundRepository } from "../src/repositories/refund.repository.js";
 import { orderRepository } from "../src/repositories/order.repository.js";
 import { createNotification } from "../src/services/audit.service.js";
+import { prisma } from "../src/config/database.js";
 
 const importedNumber = {
   id: "num_1",
@@ -43,7 +52,8 @@ const order = {
   id: "ord_1",
   userId: "user_1",
   orderCode: "ORD-A1B2",
-  total: { toString: () => "560.00" },
+  total: new Prisma.Decimal("560.00"),
+  numbers: [{ id: "num_1" }],
 };
 
 const createdRefund = {
@@ -69,6 +79,12 @@ beforeEach(() => {
   vi.mocked(orderRepository.findById).mockResolvedValue(order as never);
   vi.mocked(refundRepository.create).mockResolvedValue(createdRefund as never);
   vi.mocked(createNotification).mockResolvedValue(undefined);
+  vi.mocked(prisma.order.findUnique).mockResolvedValue({
+    total: new Prisma.Decimal("560.00"),
+    refunds: [],
+    numbers: [{ id: "num_1" }],
+  } as never);
+  vi.mocked(prisma.walletTransaction.findMany).mockResolvedValue([] as never);
 });
 
 describe("refundService.createNumberRefund", () => {
