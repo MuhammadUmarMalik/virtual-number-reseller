@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useForm, useWatch, type SubmitHandler } from "react-hook-form";
@@ -12,9 +12,13 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { ApiError } from "@/lib/api-client";
+import { formatCurrency } from "@/lib/format-currency";
 import {
   createProduct,
+  getVendorStock,
+  syncProductStock,
   updateProduct,
+  updateProductPricing,
 } from "@/services/admin.service";
 import type { Product } from "@/types/order.types";
 
@@ -25,10 +29,11 @@ const productSchema = z.object({
     .trim()
     .min(2, "Slug is required")
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, or dashes"),
-  country: z.string().trim().min(2, "Country is required"),
-  countryCode: z.string().trim().min(2, "Country code is required"),
-  service: z.string().trim().min(2, "Service is required"),
+  country: z.string().trim().min(1, "Country is required"),
+  countryCode: z.string().trim().min(1, "Country code is required"),
+  service: z.string().trim().min(1, "Service is required"),
   numberType: z.string().trim().min(2, "Number type is required"),
+  vendor: z.literal("SMSBOWER"),
   description: z.string().trim().max(500).optional(),
   vendorCost: z.number().min(0).optional(),
   sellingPrice: z.number().positive("Price must be greater than zero"),
@@ -37,6 +42,9 @@ const productSchema = z.object({
     .number()
     .min(1, "Refund window must be at least 1 hour"),
   availableStock: z.number().int().min(0),
+  serialMode: z.enum(["SINGLE", "MULTIPLE"]),
+  secretKey: z.string().trim().optional(),
+  vip: z.string().trim().optional(),
   status: z.enum(["ACTIVE", "INACTIVE", "OUT_OF_STOCK"]),
 });
 
@@ -54,6 +62,13 @@ export function ProductFormModal({
   onSuccess,
 }: ProductFormModalProps) {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [fetchingStock, setFetchingStock] = useState(false);
+  const [vendorCost, setVendorCost] = useState<number | null>(
+    product?.vendorCost != null && product.vendorCost !== ""
+      ? Number(product.vendorCost)
+      : null
+  );
+  const submittingRef = useRef(false);
 
   const {
     register,
@@ -77,6 +92,9 @@ export function ProductFormModal({
             product.marginMultiplier != null ? Number(product.marginMultiplier) : undefined,
           refundWindowHours: product.refundWindowHours,
           availableStock: product.availableStock,
+          serialMode: product.serialMode,
+          secretKey: product.secretKey ?? "",
+          vip: product.vip ?? "",
           status: product.status,
         }
       : {
@@ -92,6 +110,9 @@ export function ProductFormModal({
           marginMultiplier: undefined,
           refundWindowHours: 3,
           availableStock: 0,
+          serialMode: "SINGLE",
+          secretKey: "",
+          vip: "",
           status: "ACTIVE",
         },
   });
@@ -108,6 +129,8 @@ export function ProductFormModal({
       : null;
 
   const submitForm: SubmitHandler<ProductFormValues> = async (values) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setServerError(null);
     try {
       if (product) {
@@ -135,6 +158,82 @@ export function ProductFormModal({
         error instanceof ApiError ? error.message : "Unable to save product";
       setServerError(message);
       toast.error(message);
+    } finally {
+      submittingRef.current = false;
+    }
+  };
+
+  const handleFetchStock = async () => {
+    if (product) {
+      setServerError(null);
+      setFetchingStock(true);
+      try {
+        const result = await syncProductStock(product.id);
+        setValue("availableStock", result.availableStock, { shouldDirty: true });
+        if (result.vendorCost != null && Number(result.vendorCost) > 0) {
+          setVendorCost(Number(result.vendorCost));
+        }
+        toast.success(
+          result.notAvailable
+            ? "Not available — vendor has no stock for this service/country"
+            : `Live stock: ${result.availableStock}`
+        );
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : "Unable to sync stock";
+        setServerError(message);
+        toast.error(message);
+      } finally {
+        setFetchingStock(false);
+      }
+      return;
+    }
+
+    const vendor = getValues("vendor");
+    const country = getValues("countryCode")?.trim();
+    const service = getValues("service")?.trim();
+
+    if (!country) {
+      toast.error("Enter a country code first");
+      return;
+    }
+
+    if (!service) {
+      toast.error("Enter a service code first (e.g. wa, go)");
+      return;
+    }
+
+    setServerError(null);
+    setFetchingStock(true);
+    try {
+      const result = await getVendorStock({
+        vendor,
+        country,
+        service,
+        vip: getValues("vip")?.trim() || undefined,
+      });
+      if (result.notAvailable) {
+        setValue("availableStock", 0, { shouldDirty: true });
+        setVendorCost(null);
+        toast.warning("Not available — vendor has no stock for this service/country");
+        return;
+      }
+      const available =
+        typeof result.available === "number"
+          ? result.available
+          : (result.available[country.toLowerCase()] ?? 0);
+      setValue("availableStock", available, { shouldDirty: true });
+      if (result.vendorCost != null) {
+        setVendorCost(Number(result.vendorCost));
+      }
+      toast.success(`Live stock: ${available}`);
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : "Unable to fetch stock";
+      setServerError(message);
+      toast.error(message);
+    } finally {
+      setFetchingStock(false);
     }
   };
 
@@ -167,6 +266,18 @@ export function ProductFormModal({
           disabled={isSubmitting}
           {...register("slug")}
         />
+        <div className="space-y-1.5">
+          <Label htmlFor="vendor">Vendor</Label>
+          <Select id="vendor" disabled={isSubmitting} {...register("vendor")}>
+            <option value="SMSBOWER">SMSBower</option>
+          </Select>
+          {errors.vendor?.message && (
+            <p className="text-sm text-red-600">{errors.vendor.message}</p>
+          )}
+        </div>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400">
+          SMSBower uses service codes (e.g. wa, go, tg) and country codes from their catalog.
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             label="Country"
@@ -180,15 +291,17 @@ export function ProductFormModal({
             type="text"
             error={errors.countryCode?.message}
             disabled={isSubmitting}
+            placeholder="e.g. 2"
             {...register("countryCode")}
           />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            label="Service"
+            label="Service Code"
             type="text"
             error={errors.service?.message}
             disabled={isSubmitting}
+            placeholder="e.g. wa, go, tg"
             {...register("service")}
           />
           <FormField
@@ -197,6 +310,24 @@ export function ProductFormModal({
             error={errors.numberType?.message}
             disabled={isSubmitting}
             {...register("numberType")}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            label="Vendor Country ID"
+            type="text"
+            error={errors.vendorCountryId?.message}
+            disabled={isSubmitting}
+            placeholder="e.g. 12"
+            {...register("vendorCountryId")}
+          />
+          <FormField
+            label="Provider ID (tier)"
+            type="text"
+            error={errors.vendorProviderId?.message}
+            disabled={isSubmitting}
+            placeholder="e.g. 3160"
+            {...register("vendorProviderId")}
           />
         </div>
         <FormField
@@ -249,13 +380,88 @@ export function ProductFormModal({
             disabled={isSubmitting}
             {...register("refundWindowHours", { valueAsNumber: true })}
           />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="availableStock">Stock</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                isLoading={fetchingStock}
+                onClick={handleFetchStock}
+                title="Fetch live stock from vendor"
+              >
+                Fetch Live
+              </Button>
+            </div>
+            <FormField
+              id="availableStock"
+              label=""
+              type="number"
+              inputMode="numeric"
+              error={errors.availableStock?.message}
+              disabled={isSubmitting}
+              {...register("availableStock", { valueAsNumber: true })}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormField
-            label="Stock"
+            label="Margin (×)"
             type="number"
-            inputMode="numeric"
-            error={errors.availableStock?.message}
+            inputMode="decimal"
+            step="0.05"
+            error={errors.marginMultiplier?.message}
             disabled={isSubmitting}
-            {...register("availableStock", { valueAsNumber: true })}
+            placeholder="e.g. 1.2"
+            {...register("marginMultiplier", {
+              valueAsNumber: true,
+              setValueAs: (value) =>
+                value === "" || value == null ? undefined : Number(value),
+            })}
+          />
+          <div className="space-y-1">
+            <Label>Vendor Cost (PKR)</Label>
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              {vendorCost != null ? formatCurrency(vendorCost) : "—"}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>Computed Price</Label>
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">
+              {vendorCost != null && marginMultiplier != null && marginMultiplier > 0
+                ? formatCurrency(Math.round(vendorCost * marginMultiplier * 100) / 100)
+                : "Set margin to auto-fill"}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="serialMode">Serial Mode</Label>
+            <Select id="serialMode" disabled={isSubmitting} {...register("serialMode")}>
+              <option value="SINGLE">Single</option>
+              <option value="MULTIPLE">Multiple</option>
+            </Select>
+            {errors.serialMode?.message && (
+              <p className="text-sm text-red-600">{errors.serialMode.message}</p>
+            )}
+          </div>
+          <FormField
+            label="Secret Key"
+            type="password"
+            error={errors.secretKey?.message}
+            disabled={isSubmitting}
+            placeholder="Only if the project requires it"
+            {...register("secretKey")}
+          />
+          <FormField
+            label="VIP Key"
+            type="text"
+            error={errors.vip?.message}
+            disabled={isSubmitting}
+            placeholder="Only if using a VIP channel"
+            {...register("vip")}
           />
         </div>
         <div className="space-y-1.5">
@@ -266,7 +472,12 @@ export function ProductFormModal({
             <option value="OUT_OF_STOCK">Out of Stock</option>
           </Select>
         </div>
-        <Button type="submit" className="w-full" isLoading={isSubmitting}>
+        <Button
+          type="submit"
+          className="w-full"
+          isLoading={isSubmitting}
+          disabled={isSubmitting}
+        >
           {product ? "Save Changes" : "Create Product"}
         </Button>
       </form>
