@@ -45,7 +45,8 @@ claude.md
 .playwright-cli/
 
 #claude agents
-
+AGENTS.md
+claude.md
 .claude/*
 
 #ignore md files 
@@ -54,3 +55,6 @@ git.md
 prompts.md
 agents.md
 claude.md
+tests/*
+tasks/*
+docs/*
