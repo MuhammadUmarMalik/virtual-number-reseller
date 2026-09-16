@@ -23,4 +23,12 @@ export const orderController = {
     const data = await orderService.getOrder(req.user!.id, paramString(req.params.orderId));
     res.json(successResponse("Order retrieved", data));
   }),
+
+  getStatus: asyncHandler(async (req: Request, res: Response) => {
+    const data = await orderService.getOrderStatus(
+      req.user!.id,
+      paramString(req.params.orderId)
+    );
+    res.json(successResponse("Order status retrieved", data));
+  }),
 };

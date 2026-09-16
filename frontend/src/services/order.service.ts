@@ -1,6 +1,10 @@
 import { apiClient } from "@/lib/api-client";
 import type { PaginatedResponse } from "@/types/api.types";
-import type { CreateOrderPayload, Order } from "@/types/order.types";
+import type {
+  CreateOrderPayload,
+  Order,
+  OrderStatusResponse,
+} from "@/types/order.types";
 
 export async function createOrder(
   payload: CreateOrderPayload
@@ -28,4 +32,10 @@ export async function getOrders(params?: {
 
 export async function getOrder(orderId: string): Promise<Order> {
   return apiClient<Order>(`/orders/${orderId}`);
+}
+
+export async function getOrderStatus(
+  orderId: string
+): Promise<OrderStatusResponse> {
+  return apiClient<OrderStatusResponse>(`/orders/${orderId}/status`);
 }
