@@ -4,7 +4,31 @@ import { createAuditLog } from "./audit.service.js";
 import { AppError } from "../utils/app-error.js";
 import { buildPagination } from "../utils/pagination.js";
 import type { ProductListParams } from "../repositories/product.repository.js";
-import type { CreateProductInput } from "../validators/product.validator.js";
+import type { CreateProductInput, UpdatePricingInput } from "../validators/product.validator.js";
+
+function toLiveStockProduct(product: {
+  id: string;
+  vendor: string;
+  service: string;
+  countryCode: string;
+  vendorCountryId: string | null;
+  vendorProviderId: string | null;
+  vendorId: string | null;
+  vip: string | null;
+  needsSync: boolean;
+}): LiveStockProduct {
+  return {
+    id: product.id,
+    vendor: product.vendor,
+    service: product.service,
+    countryCode: product.countryCode,
+    vendorCountryId: product.vendorCountryId,
+    vendorProviderId: product.vendorProviderId,
+    vendorId: product.vendorId,
+    vip: product.vip,
+    needsSync: product.needsSync,
+  };
+}
 
 function toString(value: { toString(): string }): string {
   return value.toString();
@@ -19,15 +43,52 @@ function serializeProduct(product: {
   return { ...rest, sellingPrice: toString(product.sellingPrice) };
 }
 
+function normalizeInput(input: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...input };
+  for (const key of ["vendorId", "secretKey", "vip", "description", "vendorCountryId", "countryDialCode", "vendorProviderId"]) {
+    if (normalized[key] === "") {
+      normalized[key] = null;
+    }
+  }
+
+  const vendor = String(normalized.vendor ?? "SMSBOWER");
+  if (vendor === "SMSBOWER") {
+    const countryCode = String(normalized.countryCode ?? "").trim();
+    const vendorCountryId = normalized.vendorCountryId
+      ? String(normalized.vendorCountryId).trim()
+      : /^\d+$/.test(countryCode)
+        ? countryCode
+        : "";
+    normalized.vendorCountryId = vendorCountryId || null;
+    if (/^\+[0-9]{1,4}$/.test(countryCode) && !normalized.countryDialCode) {
+      normalized.countryDialCode = countryCode;
+    }
+  }
+
+  return normalized;
+}
+
 export const productService = {
   async list(params: ProductListParams) {
     const { page, limit } = params;
     const [total, items] = await Promise.all([
-      productRepository.count(params),
-      productRepository.list(params),
+      productRepository.count({ ...params, status: params.status ?? "ACTIVE" }),
+      productRepository.list({ ...params, status: params.status ?? "ACTIVE" }),
     ]);
 
-    return buildPagination(items.map(serializeProduct), total, { page, limit });
+    const liveStock = await liveStockService.getLiveStockMap(
+      items.map(toLiveStockProduct)
+    );
+    const serialized = items.map((product) => {
+      const item = serializeProduct(product);
+      const live = liveStock.get(product.id);
+      if (live !== undefined) {
+        item.availableStock = live;
+      }
+      return item;
+    });
+
+    return buildPagination(serialized, total, { page, limit });
   },
 
   async getById(productId: string) {
@@ -35,7 +96,12 @@ export const productService = {
     if (!product || product.deletedAt) {
       throw new AppError("Product not found", 404);
     }
-    return serializeProduct(product);
+    const item = serializeProduct(product);
+    const live = await liveStockService.getLiveStock(toLiveStockProduct(product));
+    if (live !== null) {
+      item.availableStock = live;
+    }
+    return item;
   },
 
   async create(input: CreateProductInput) {
@@ -44,11 +110,20 @@ export const productService = {
       throw new AppError("A product with this slug already exists", 409);
     }
 
+    const nameTaken = await productRepository.findByName(input.name);
+    if (nameTaken) {
+      throw new AppError("A product with this name already exists", 409);
+    }
+
     const product = await productRepository.create({
-      ...input,
+      ...(normalizeInput(input) as CreateProductInput),
       description: input.description || null,
       status: input.status ?? "ACTIVE",
     });
+
+    logger.info(
+      `[product:create] id=${product.id} vendor=${product.vendor} service=${product.service} country=${product.country} countryCode=${product.countryCode} availableStock=${product.availableStock}`
+    );
 
     return serializeProduct(product);
   },
@@ -66,8 +141,17 @@ export const productService = {
       }
     }
 
+    if (input.name && input.name !== existing.name) {
+      const nameTaken = await productRepository.findByName(input.name);
+      if (nameTaken && nameTaken.id !== productId) {
+        throw new AppError("A product with this name already exists", 409);
+      }
+    }
+
+    const { availableStock: _stock, ...rest } = input;
+
     const product = await productRepository.update(productId, {
-      ...input,
+      ...(normalizeInput(rest) as CreateProductInput),
       description: input.description ?? existing.description,
     });
 
