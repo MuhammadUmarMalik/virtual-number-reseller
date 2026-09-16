@@ -1,9 +1,7 @@
 import {
   clearAuthStorage,
   getAccessToken,
-  getRefreshToken,
   setAccessToken,
-  setRefreshToken,
 } from "@/lib/auth-storage";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -51,16 +49,15 @@ function isApiResponse<T>(value: unknown): value is ApiResponse<T> {
 let refreshPromise: Promise<boolean> | null = null;
 
 async function tryRefreshToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
+    // The refresh token lives in an HttpOnly cookie; the server reads it
+    // itself, so no token needs to be sent from JavaScript.
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
     });
 
     const body: unknown = await response.json().catch(() => null);
@@ -73,7 +70,6 @@ async function tryRefreshToken(): Promise<boolean> {
     if (!tokens?.accessToken || !tokens.refreshToken) return false;
 
     setAccessToken(tokens.accessToken);
-    setRefreshToken(tokens.refreshToken);
     return true;
   })().finally(() => {
     refreshPromise = null;
@@ -101,7 +97,7 @@ function handleAuthFailure(): void {
 export async function apiClient<T>(
   path: string,
   options: RequestInit = {},
-  internal?: { retried?: boolean }
+  internal?: { retried?: boolean; skipAuthRedirect?: boolean }
 ): Promise<T> {
   const token = getAccessToken();
   const headers = new Headers(options.headers);
@@ -120,6 +116,7 @@ export async function apiClient<T>(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
+      credentials: "include",
       headers,
     });
   } catch {
@@ -137,7 +134,9 @@ export async function apiClient<T>(
     if (refreshed) {
       return apiClient<T>(path, options, { retried: true });
     }
-    handleAuthFailure();
+    if (!internal?.skipAuthRedirect) {
+      handleAuthFailure();
+    }
   }
 
   const body: unknown = await response.json().catch(() => null);

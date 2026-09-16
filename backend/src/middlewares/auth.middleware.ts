@@ -4,24 +4,28 @@ import { env } from "../config/env.js";
 import { userRepository } from "../repositories/user.repository.js";
 import { AppError } from "../utils/app-error.js";
 import { asyncHandler } from "../utils/async-handler.js";
+import { getCookie } from "../utils/cookie.js";
 
 interface AccessTokenPayload {
   sub: string;
 }
 
-export const authenticate: RequestHandler = asyncHandler(async (req, _res, next) => {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    throw new AppError("Authentication required", 401);
-  }
-
-  const token = header.slice(7);
-  let payload: AccessTokenPayload;
+function verifyToken(token: string): AccessTokenPayload | null {
   try {
-    payload = jwt.verify(token, env.accessTokenSecret, {
+    return jwt.verify(token, env.accessTokenSecret, {
       issuer: env.jwtIssuer,
     }) as AccessTokenPayload;
   } catch {
+    return null;
+  }
+}
+
+export const authenticate: RequestHandler = asyncHandler(async (req, _res, next) => {
+  const header = req.headers.authorization;
+  const headerToken = header && header.startsWith("Bearer ") ? header.slice(7) : null;
+  const cookieToken = getCookie(req, "access_token");
+  const payload = verifyToken(headerToken ?? "") ?? verifyToken(cookieToken ?? "");
+  if (!payload) {
     throw new AppError("Invalid or expired token", 401);
   }
 

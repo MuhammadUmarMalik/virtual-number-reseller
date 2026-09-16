@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   clearAuthStorage,
   setAccessToken,
-  setRefreshToken,
 } from "@/lib/auth-storage";
 import {
   logout as logoutRequest,
@@ -40,7 +39,6 @@ export function useAuth() {
       try {
         const response = await signInRequest(payload);
         setAccessToken(response.tokens.accessToken);
-        setRefreshToken(response.tokens.refreshToken);
         setAuth(response.user, response.tokens.accessToken);
         router.replace(getDestination(response));
         router.refresh();
@@ -57,7 +55,6 @@ export function useAuth() {
       try {
         const response = await signUpRequest(payload);
         setAccessToken(response.tokens.accessToken);
-        setRefreshToken(response.tokens.refreshToken);
         setAuth(response.user, response.tokens.accessToken);
         router.replace(getDestination(response));
         router.refresh();

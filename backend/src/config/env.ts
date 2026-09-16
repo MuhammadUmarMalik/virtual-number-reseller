@@ -4,7 +4,7 @@ dotenv.config();
 
 const getEnv = (key: string, fallback = ""): string => process.env[key] ?? fallback;
 
-export const env = {
+const env = {
   nodeEnv: getEnv("NODE_ENV", "development"),
   port: Number(getEnv("PORT", "4000")),
   databaseUrl: getEnv(
@@ -43,3 +43,25 @@ export const env = {
   ),
   otpProxyTimeoutMs: Number(getEnv("OTP_PROXY_TIMEOUT_MS", "10000")),
 } as const;
+
+// Fail fast in production with guessable or missing JWT secrets.
+if (env.nodeEnv === "production") {
+  if (
+    !process.env.ACCESS_TOKEN_SECRET ||
+    env.accessTokenSecret === "dev-access-secret"
+  ) {
+    throw new Error(
+      "ACCESS_TOKEN_SECRET must be set to a strong value in production"
+    );
+  }
+  if (
+    !process.env.REFRESH_TOKEN_SECRET ||
+    env.refreshTokenSecret === "dev-refresh-secret"
+  ) {
+    throw new Error(
+      "REFRESH_TOKEN_SECRET must be set to a strong value in production"
+    );
+  }
+}
+
+export { env };

@@ -1,4 +1,14 @@
 import { prisma } from "../config/database.js";
+import { AppError } from "../utils/app-error.js";
+
+const ALLOWED_SETTINGS_KEYS = new Set([
+  "admin_whatsapp_number",
+  "min_topup_amount",
+  "support_email",
+  "support_whatsapp",
+  "otp_polling_interval_ms",
+  "smsbower_activation_timeout_ms",
+]);
 
 export const settingsService = {
   async getAll(): Promise<Record<string, string>> {
@@ -11,6 +21,12 @@ export const settingsService = {
   },
 
   async updateAll(entries: Record<string, string>): Promise<Record<string, string>> {
+    for (const key of Object.keys(entries)) {
+      if (!ALLOWED_SETTINGS_KEYS.has(key)) {
+        throw new AppError(`Setting '${key}' cannot be modified`, 400);
+      }
+    }
+
     await prisma.$transaction(
       Object.entries(entries).map(([key, value]) =>
         prisma.appSetting.upsert({
