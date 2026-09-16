@@ -22,6 +22,17 @@ export async function debitWallet(tx: Tx, input: WalletMutationInput) {
   return mutateWallet(tx, input, false);
 }
 
+/**
+ * Mutates a wallet balance and writes a matching wallet transaction.
+ *
+ * Concurrency safety:
+ * - Credits use an atomic `increment` on the balance column.
+ * - Debits use an atomic conditional `updateMany` (`balance >= amount`).
+ *   PostgreSQL re-evaluates the WHERE clause on the updated row, so two
+ *   concurrent debits can never both succeed against the same funds.
+ *
+ * Both paths run inside the caller's Prisma transaction.
+ */
 async function mutateWallet(
   tx: Tx,
   input: WalletMutationInput,
@@ -48,6 +59,34 @@ async function mutateWallet(
     where: { id: wallet.id },
     data: { balance: balanceAfter },
   });
+  if (!wallet) {
+    throw new AppError("Wallet not found", 404);
+  }
+
+  let balanceAfter: Prisma.Decimal;
+  if (isCredit) {
+    const updated = await tx.wallet.update({
+      where: { id: wallet.id },
+      data: { balance: { increment: amount } },
+    });
+    balanceAfter = new Prisma.Decimal(updated.balance.toString());
+  } else {
+    const result = await tx.wallet.updateMany({
+      where: { id: wallet.id, balance: { gte: amount } },
+      data: { balance: { decrement: amount } },
+    });
+    if (result.count === 0) {
+      throw new AppError("Insufficient wallet balance", 400);
+    }
+    const updated = await tx.wallet.findUniqueOrThrow({
+      where: { id: wallet.id },
+    });
+    balanceAfter = new Prisma.Decimal(updated.balance.toString());
+  }
+
+  const balanceBefore = isCredit
+    ? balanceAfter.sub(amount)
+    : balanceAfter.add(amount);
 
   await tx.walletTransaction.create({
     data: {
@@ -55,7 +94,7 @@ async function mutateWallet(
       userId: input.userId,
       type: input.type,
       amount,
-      balanceBefore: wallet.balance,
+      balanceBefore,
       balanceAfter,
       status: "COMPLETED",
       referenceType: input.referenceType,
